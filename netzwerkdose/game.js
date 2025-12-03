@@ -566,38 +566,81 @@ function createFrontLabel(parent, text, x, y, z) {
 }
 
 function createRJ45JackFront(parent, x, y) {
-    // Schwarze RJ45-Buchse
-    const jackOuterGeometry = new THREE.BoxGeometry(1.8, 1.4, 0.8);
+    // Äußerer Rahmen der RJ45-Buchse (hellgrau für Kontrast)
+    const frameGeometry = new THREE.BoxGeometry(2.2, 1.8, 0.15);
+    const frameMaterial = new THREE.MeshStandardMaterial({
+        color: 0x888888,
+        roughness: 0.6
+    });
+    const frame = new THREE.Mesh(frameGeometry, frameMaterial);
+    frame.position.set(x, y, -0.95);
+    parent.add(frame);
+
+    // Schwarze RJ45-Buchse (Hauptkörper)
+    const jackOuterGeometry = new THREE.BoxGeometry(1.9, 1.5, 0.3);
     const jackMaterial = new THREE.MeshStandardMaterial({
         color: 0x1a1a1a,
-        roughness: 0.8
+        roughness: 0.7
     });
     const jackOuter = new THREE.Mesh(jackOuterGeometry, jackMaterial);
-    jackOuter.position.set(x, y, -0.6);  // Nach vorne (negative Z Richtung)
+    jackOuter.position.set(x, y, -1.05);
     parent.add(jackOuter);
 
-    // Innerer Hohlraum (Buchsenöffnung)
-    const jackInnerGeometry = new THREE.BoxGeometry(1.4, 1.0, 0.5);
-    const jackInnerMaterial = new THREE.MeshStandardMaterial({
-        color: 0x0a0a0a,
-        roughness: 0.9
+    // Trapezförmige Buchsenöffnung (typische RJ45 Form)
+    // Oberer Teil breiter
+    const jackOpeningGeometry = new THREE.BoxGeometry(1.5, 1.1, 0.4);
+    const jackOpeningMaterial = new THREE.MeshStandardMaterial({
+        color: 0x050505,
+        roughness: 0.95
     });
-    const jackInner = new THREE.Mesh(jackInnerGeometry, jackInnerMaterial);
-    jackInner.position.set(x, y, -0.85);
-    parent.add(jackInner);
+    const jackOpening = new THREE.Mesh(jackOpeningGeometry, jackOpeningMaterial);
+    jackOpening.position.set(x, y - 0.05, -1.15);
+    parent.add(jackOpening);
 
-    // Kontakte im Inneren (goldfarben)
+    // Plastik-Clip-Führung oben (typisch für RJ45)
+    const clipGuideGeometry = new THREE.BoxGeometry(0.8, 0.15, 0.3);
+    const clipGuideMaterial = new THREE.MeshStandardMaterial({
+        color: 0x2a2a2a,
+        roughness: 0.8
+    });
+    const clipGuide = new THREE.Mesh(clipGuideGeometry, clipGuideMaterial);
+    clipGuide.position.set(x, y + 0.35, -1.1);
+    parent.add(clipGuide);
+
+    // 8 goldene Kontakte im Inneren (deutlich sichtbar)
     for (let i = 0; i < 8; i++) {
-        const contactGeometry = new THREE.BoxGeometry(0.08, 0.4, 0.05);
+        const contactGeometry = new THREE.BoxGeometry(0.12, 0.5, 0.08);
         const contactMaterial = new THREE.MeshStandardMaterial({
-            color: 0xdaa520,
-            metalness: 0.8,
-            roughness: 0.3
+            color: 0xffd700,
+            metalness: 0.9,
+            roughness: 0.2,
+            emissive: 0x332200,
+            emissiveIntensity: 0.3
         });
         const contact = new THREE.Mesh(contactGeometry, contactMaterial);
-        contact.position.set(x - 0.56 + i * 0.16, y + 0.15, -0.7);
+        contact.position.set(x - 0.56 + i * 0.16, y + 0.1, -1.0);
         parent.add(contact);
     }
+
+    // Beschriftung "RJ45" unter der Buchse
+    const labelCanvas = document.createElement('canvas');
+    labelCanvas.width = 128;
+    labelCanvas.height = 32;
+    const labelCtx = labelCanvas.getContext('2d');
+    labelCtx.fillStyle = '#666666';
+    labelCtx.font = 'bold 20px Arial';
+    labelCtx.textAlign = 'center';
+    labelCtx.fillText('RJ45', 64, 22);
+    
+    const labelTexture = new THREE.CanvasTexture(labelCanvas);
+    const labelMaterial = new THREE.SpriteMaterial({ 
+        map: labelTexture,
+        transparent: true
+    });
+    const labelSprite = new THREE.Sprite(labelMaterial);
+    labelSprite.position.set(x, y - 1.1, -1.0);
+    labelSprite.scale.set(1.2, 0.3, 1);
+    parent.add(labelSprite);
 }
 
 function createStandardLabel(parent, text, x, y, z) {
