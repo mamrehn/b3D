@@ -1,0 +1,218 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Netzwerkdose Belegung - Lernspiel</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header mit Timer und Score -->
+        <header id="header">
+            <div class="header-left">
+                <h1>🔌 Netzwerkdose Belegung (T568A)</h1>
+            </div>
+            <div class="header-center">
+                <div id="timer">
+                    <span class="timer-icon">⏱️</span>
+                    <span id="timer-display">00:00</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <button id="help-btn" class="btn btn-help" title="Hilfe anzeigen">
+                    <span>💡</span> Hilfe
+                </button>
+                <button id="reset-btn" class="btn btn-reset" title="Neu starten">
+                    <span>🔄</span> Neustart
+                </button>
+            </div>
+        </header>
+
+        <!-- Hauptbereich -->
+        <main id="main">
+            <!-- 3D Canvas -->
+            <div id="canvas-container">
+                <canvas id="scene"></canvas>
+                <!-- Overlay für Anweisungen -->
+                <div id="instructions-overlay">
+                    <p>🖱️ Linke Maustaste + Ziehen = Drehen | Scrollrad = Zoomen | Rechte Maustaste = Verschieben</p>
+                </div>
+            </div>
+
+            <!-- Seitenleiste -->
+            <aside id="sidebar">
+                <!-- Kabelader-Auswahl -->
+                <div class="panel" id="cable-panel">
+                    <h3>📦 Kabeladern</h3>
+                    <p class="panel-description">Klicke auf eine Ader und dann auf einen Clip in der Dose:</p>
+                    <div id="cable-cores">
+                        <!-- Wird dynamisch generiert -->
+                    </div>
+                </div>
+
+                <!-- Aktuelle Dose -->
+                <div class="panel" id="socket-panel">
+                    <h3>🔌 Kabel & Dosen Status</h3>
+                    <div id="socket-status">
+                        <div class="socket-status-item active-cable">
+                            <span>📍 Kabel 1 → Dose A:</span>
+                            <span id="socket1-progress">0/8</span>
+                        </div>
+                        <div class="socket-status-item completed-cable">
+                            <span>✅ Kabel 2 → Dose B:</span>
+                            <span id="socket2-progress">8/8 ✓</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aktionen -->
+                <div class="panel" id="action-panel">
+                    <button id="check-btn" class="btn btn-primary btn-large" disabled>
+                        ✅ Belegung prüfen
+                    </button>
+                </div>
+            </aside>
+        </aside>
+        </main>
+
+        <!-- Hilfe-Modal -->
+        <div id="help-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>💡 Gestufte Hilfen</h2>
+                    <button class="modal-close" id="help-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="help-levels">
+                        <div class="help-level" id="help-level-1">
+                            <h3>Hilfe Stufe 1 - Allgemeine Information</h3>
+                            <div class="help-content hidden">
+                                <p>Die Belegung einer Netzwerkdose erfolgt nach dem <strong>T568A-Standard</strong>.</p>
+                                <p>Ein Netzwerkkabel besteht aus <strong>8 Adern</strong>, die paarweise verdrillt sind (4 Paare).</p>
+                                <p>Bei einer <strong>Doppeldose</strong> werden zwei separate Kabel benötigt - eines für jede Buchse (A und B).</p>
+                                <p>Die LSA-Klemmen sind in <strong>zwei Reihen</strong> angeordnet, passend zu den Adernpaaren.</p>
+                            </div>
+                            <button class="btn btn-hint" data-level="1">Hilfe anzeigen</button>
+                        </div>
+
+                        <div class="help-level" id="help-level-2">
+                            <h3>Hilfe Stufe 2 - Farbpaare</h3>
+                            <div class="help-content hidden">
+                                <p>Die 4 Adernpaare haben folgende Farben:</p>
+                                <ul>
+                                    <li><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #2E8B57 50%);"></span> Paar 1: Weiß-Grün / Grün</li>
+                                    <li><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #FF8C00 50%);"></span> Paar 2: Weiß-Orange / Orange</li>
+                                    <li><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #4169E1 50%);"></span> Paar 3: Weiß-Blau / Blau</li>
+                                    <li><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #8B4513 50%);"></span> Paar 4: Weiß-Braun / Braun</li>
+                                </ul>
+                            </div>
+                            <button class="btn btn-hint" data-level="2">Hilfe anzeigen</button>
+                        </div>
+
+                        <div class="help-level" id="help-level-3">
+                            <h3>Hilfe Stufe 3 - Reihenfolge Merkhilfe</h3>
+                            <div class="help-content hidden">
+                                <p><strong>Eselsbrücke für T568A:</strong></p>
+                                <p class="mnemonic">"<strong>G</strong>rüne <strong>O</strong>mas <strong>b</strong>ringen <strong>b</strong>raune Kuchen"</p>
+                                <p>→ Grün, Orange, Blau, Braun (Reihenfolge der Paare)</p>
+                                <p>Die gestreiften Adern (weiß-farbig) kommen immer <strong>vor</strong> den vollfarbigen Adern ihres Paares.</p>
+                            </div>
+                            <button class="btn btn-hint" data-level="3">Hilfe anzeigen</button>
+                        </div>
+
+                        <div class="help-level" id="help-level-4">
+                            <h3>Hilfe Stufe 4 - LSA-Klemmen Anordnung</h3>
+                            <div class="help-content hidden">
+                                <p><strong>Obere Reihe (von links nach rechts):</strong></p>
+                                <ol>
+                                    <li><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #FF8C00 50%);"></span> Weiß-Orange</li>
+                                    <li><span class="color-dot" style="background: #FF8C00;"></span> Orange</li>
+                                    <li><span class="color-dot" style="background: #4169E1;"></span> Blau</li>
+                                    <li><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #4169E1 50%);"></span> Weiß-Blau</li>
+                                </ol>
+                                <p><strong>Untere Reihe (von links nach rechts):</strong></p>
+                                <ol>
+                                    <li><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #2E8B57 50%);"></span> Weiß-Grün</li>
+                                    <li><span class="color-dot" style="background: #2E8B57;"></span> Grün</li>
+                                    <li><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #8B4513 50%);"></span> Weiß-Braun</li>
+                                    <li><span class="color-dot" style="background: #8B4513;"></span> Braun</li>
+                                </ol>
+                            </div>
+                            <button class="btn btn-hint" data-level="4">Hilfe anzeigen</button>
+                        </div>
+
+                        <div class="help-level" id="help-level-5">
+                            <h3>Hilfe Stufe 5 - Komplette Lösung</h3>
+                            <div class="help-content hidden">
+                                <p><strong>T568A Belegung der LSA-Klemmen:</strong></p>
+                                <table class="solution-table">
+                                    <tr><th>Reihe</th><th>Position</th><th>Farbe</th><th>Pin (RJ45)</th></tr>
+                                    <tr><td>Oben</td><td>1</td><td><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #FF8C00 50%);"></span> Weiß-Orange</td><td>3</td></tr>
+                                    <tr><td>Oben</td><td>2</td><td><span class="color-dot" style="background: #FF8C00;"></span> Orange</td><td>6</td></tr>
+                                    <tr><td>Oben</td><td>3</td><td><span class="color-dot" style="background: #4169E1;"></span> Blau</td><td>4</td></tr>
+                                    <tr><td>Oben</td><td>4</td><td><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #4169E1 50%);"></span> Weiß-Blau</td><td>5</td></tr>
+                                    <tr><td>Unten</td><td>1</td><td><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #2E8B57 50%);"></span> Weiß-Grün</td><td>1</td></tr>
+                                    <tr><td>Unten</td><td>2</td><td><span class="color-dot" style="background: #2E8B57;"></span> Grün</td><td>2</td></tr>
+                                    <tr><td>Unten</td><td>3</td><td><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #8B4513 50%);"></span> Weiß-Braun</td><td>7</td></tr>
+                                    <tr><td>Unten</td><td>4</td><td><span class="color-dot" style="background: #8B4513;"></span> Braun</td><td>8</td></tr>
+                                </table>
+                                <p><em>Hinweis: Beide Dosen (A und B) werden identisch belegt!</em></p>
+                            </div>
+                            <button class="btn btn-hint" data-level="5">Hilfe anzeigen</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ergebnis-Modal -->
+        <div id="result-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="result-title">Ergebnis</h2>
+                    <button class="modal-close" id="result-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="result-icon"></div>
+                    <div id="result-score"></div>
+                    <div id="result-time"></div>
+                    <div id="result-details"></div>
+                    <div id="result-errors" class="hidden"></div>
+                    <button id="result-retry" class="btn btn-primary">🔄 Nochmal versuchen</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Start-Modal -->
+        <div id="start-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>🔌 Netzwerkdose Belegung</h2>
+                </div>
+                <div class="modal-body">
+                    <div class="start-info">
+                        <p>Willkommen zum interaktiven Lernspiel!</p>
+                        <p>Deine Aufgabe ist es, ein <strong>Ethernet-Kabel</strong> (8 Adern) korrekt in die <strong>LSA-Klemmen</strong> der Dose A einzulegen.</p>
+                        <p class="info-note">ℹ️ Die Dose B ist bereits fertig verkabelt - nutze sie als Referenz!</p>
+                        <h3>So funktioniert's:</h3>
+                        <ol>
+                            <li>Wähle eine Kabelader aus der Seitenleiste</li>
+                            <li>Klicke auf die entsprechende LSA-Klemme in Dose A</li>
+                            <li>Belege alle 8 Klemmen korrekt</li>
+                            <li>Prüfe deine Belegung</li>
+                        </ol>
+                        <p class="tip">💡 <strong>Tipp:</strong> Die Farbmarkierungen über den LSA-Klemmen zeigen die korrekte Belegung nach T568A!</p>
+                    </div>
+                    <button id="start-btn" class="btn btn-primary btn-large">🚀 Spiel starten</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Three.js und Anwendungs-Skripte -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
