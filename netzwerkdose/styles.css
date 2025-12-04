@@ -667,3 +667,134 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--border-color);
 }
+
+/* Level Select Modal */
+.level-select-content {
+    max-width: 700px;
+}
+
+.level-intro {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    font-size: 1rem;
+    color: var(--text-muted);
+}
+
+.level-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.level-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.25rem;
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    color: var(--text-color);
+}
+
+.level-btn:hover:not(.locked) {
+    border-color: var(--primary-color);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
+}
+
+.level-btn.locked {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.level-btn .level-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.level-btn .level-info h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 0.25rem;
+}
+
+.level-btn .level-info p {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.level-btn .level-desc {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.level-btn .lock-overlay {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    font-size: 1.25rem;
+}
+
+.level-hint {
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--warning-color);
+    background: rgba(245, 158, 11, 0.1);
+    padding: 0.75rem;
+    border-radius: var(--radius);
+}
+
+/* Level 1 Actions */
+.level1-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.level1-actions .btn {
+    width: 100%;
+    justify-content: center;
+}
+
+.level1-actions .btn.active {
+    background: var(--success-color);
+    border-color: var(--success-color);
+}
+
+.btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: var(--border-color);
+}
+
+.btn-secondary:disabled {
+    opacity: 0.4;
+}
+
+@media (max-width: 768px) {
+    .level-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .level-btn {
+        flex-direction: row;
+        text-align: left;
+        gap: 1rem;
+    }
+    
+    .level-btn .level-icon {
+        margin-bottom: 0;
+    }
+}

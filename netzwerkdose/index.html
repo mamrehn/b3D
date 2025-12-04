@@ -184,6 +184,46 @@
             </div>
         </div>
 
+        <!-- Level-Auswahl Modal -->
+        <div id="level-select-modal" class="modal">
+            <div class="modal-content level-select-content">
+                <div class="modal-header">
+                    <h2>🔌 Netzwerk-Verkabelung</h2>
+                </div>
+                <div class="modal-body">
+                    <p class="level-intro">Wähle ein Level um das Verlegen eines Netzwerkkabels zu üben:</p>
+                    <div class="level-grid">
+                        <button class="level-btn" data-level="1">
+                            <div class="level-icon">📏</div>
+                            <div class="level-info">
+                                <h3>Level 1</h3>
+                                <p>Kabelkanal</p>
+                                <span class="level-desc">Verlege das Kabel im Kabelkanal</span>
+                            </div>
+                        </button>
+                        <button class="level-btn" data-level="2">
+                            <div class="level-icon">🔌</div>
+                            <div class="level-info">
+                                <h3>Level 2</h3>
+                                <p>Netzwerkdose</p>
+                                <span class="level-desc">Belege die LSA-Klemmen (T568A)</span>
+                            </div>
+                        </button>
+                        <button class="level-btn locked" data-level="3" disabled>
+                            <div class="level-icon">🖥️</div>
+                            <div class="level-info">
+                                <h3>Level 3</h3>
+                                <p>Patchpanel</p>
+                                <span class="level-desc">Bald verfügbar...</span>
+                            </div>
+                            <div class="lock-overlay">🔒</div>
+                        </button>
+                    </div>
+                    <p class="level-hint">💡 Alle Level bauen aufeinander auf - es wird immer dasselbe Kabel verlegt!</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Start-Modal -->
         <div id="start-modal" class="modal">
             <div class="modal-content">

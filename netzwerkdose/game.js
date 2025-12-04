@@ -1,8 +1,30 @@
 ﻿// ============================================
-// Netzwerkdose Belegung - Interaktives Lernspiel
-// T568A Standard für RJ45 Doppeldose
-// Realistische LSA-Klemmen Ansicht (Rückseite)
+// Netzwerk-Verkabelung - Interaktives Lernspiel
+// Level 1: Kabelkanal
+// Level 2: Netzwerkdose (T568A)
+// Level 3: Patchpanel (T568A)
 // ============================================
+
+// Level-System
+const LEVELS = {
+    1: {
+        name: 'Kabelkanal',
+        description: 'Verlege das Verlegekabel im Kabelkanal',
+        icon: '📏'
+    },
+    2: {
+        name: 'Netzwerkdose',
+        description: 'Belege die LSA-Klemmen der Netzwerkdose (T568A)',
+        icon: '🔌'
+    },
+    3: {
+        name: 'Patchpanel',
+        description: 'Belege den Port am Patchpanel (T568A)',
+        icon: '🖥️'
+    }
+};
+
+let currentLevel = 1;
 
 // T568A Farbschema (Reihenfolge Pin 1-8)
 // Bei LSA-Klemmen: Paare sind nebeneinander angeordnet
@@ -37,7 +59,15 @@ const gameState = {
         1: { assignments: {}, used: new Set() },  // Kabel 1 für Dose A
         2: { assignments: {}, used: new Set() }   // Kabel 2 für Dose B
     },
-    helpUsed: 0
+    helpUsed: 0,
+    // Level 1 Zustand (Kabelkanal)
+    level1: {
+        cableSegments: [],      // Kabelsegmente die platziert wurden
+        totalSegments: 6,       // Anzahl der zu platzierenden Segmente
+        placedSegments: 0,
+        selectedSegment: null,
+        cableInHand: false
+    }
 };
 
 // Three.js Variablen
@@ -48,6 +78,13 @@ let wireMeshes = { 1: [], 2: [] };
 let cableMeshes = { 1: null, 2: null };
 let raycaster, mouse;
 
+// Level 1 spezifische 3D-Objekte
+let kabelkanalMesh = null;
+let kabelkanalSlots = [];           // Slot-Positionen im Kabelkanal
+let cableSegmentMeshes = [];        // Platzierte Kabelsegmente
+let floatingCableMesh = null;       // Kabel das der Nutzer gerade hält
+let kabelkanalDeckel = null;        // Deckel zum Schließen
+
 // ============================================
 // Initialisierung
 // ============================================
@@ -56,8 +93,108 @@ function init() {
     initThreeJS();
     initUI();
     initEventListeners();
-    createScene();
+    // Zeige Level-Auswahl statt direkt Scene zu erstellen
+    showLevelSelect();
     animate();
+}
+
+function showLevelSelect() {
+    document.getElementById('start-modal').classList.add('hidden');
+    document.getElementById('level-select-modal').classList.remove('hidden');
+}
+
+function selectLevel(level) {
+    currentLevel = level;
+    document.getElementById('level-select-modal').classList.add('hidden');
+    
+    // Clear existing scene
+    while(scene.children.length > 0) { 
+        scene.remove(scene.children[0]); 
+    }
+    
+    // Reset state
+    resetGameState();
+    
+    // Create scene based on level
+    if (currentLevel === 1) {
+        createLevel1Scene();
+        updateLevel1UI();
+    } else if (currentLevel === 2) {
+        createScene();
+        updateCableCoresUI();
+    }
+    
+    // Update header
+    document.querySelector('#header h1').textContent = 
+        `${LEVELS[currentLevel].icon} ${LEVELS[currentLevel].name}`;
+    
+    // Show start modal
+    updateStartModal();
+    document.getElementById('start-modal').classList.remove('hidden');
+}
+
+function resetGameState() {
+    gameState.isStarted = false;
+    gameState.startTime = null;
+    gameState.elapsedTime = 0;
+    gameState.selectedCore = null;
+    gameState.cables = {
+        1: { assignments: {}, used: new Set() },
+        2: { assignments: {}, used: new Set() }
+    };
+    gameState.helpUsed = 0;
+    gameState.level1 = {
+        cableSegments: [],
+        totalSegments: 6,
+        placedSegments: 0,
+        selectedSegment: null,
+        cableInHand: false
+    };
+    
+    // Reset 3D objects
+    lsaClipMeshes = { 1: [], 2: [] };
+    wireMeshes = { 1: [], 2: [] };
+    cableMeshes = { 1: null, 2: null };
+    kabelkanalSlots = [];
+    cableSegmentMeshes = [];
+    floatingCableMesh = null;
+}
+
+function updateStartModal() {
+    const modal = document.getElementById('start-modal');
+    const header = modal.querySelector('.modal-header h2');
+    const body = modal.querySelector('.start-info');
+    
+    if (currentLevel === 1) {
+        header.textContent = '📏 Level 1: Kabelkanal';
+        body.innerHTML = `
+            <p>Willkommen zu Level 1!</p>
+            <p>Deine Aufgabe ist es, das <strong>orangene Verlegekabel</strong> korrekt im <strong>weißen Kabelkanal</strong> zu verlegen.</p>
+            <h3>So funktioniert's:</h3>
+            <ol>
+                <li>Klicke auf "Kabel aufnehmen" um das Kabel zu greifen</li>
+                <li>Klicke auf die freien Positionen im Kabelkanal</li>
+                <li>Verlege das Kabel von links nach rechts</li>
+                <li>Schließe den Deckel wenn fertig</li>
+            </ol>
+            <p class="tip">💡 <strong>Tipp:</strong> Das Kabel muss ordentlich im Kanal liegen, nicht knicken!</p>
+        `;
+    } else if (currentLevel === 2) {
+        header.textContent = '🔌 Level 2: Netzwerkdose';
+        body.innerHTML = `
+            <p>Willkommen zu Level 2!</p>
+            <p>Deine Aufgabe ist es, ein <strong>Ethernet-Kabel</strong> (8 Adern) korrekt in die <strong>LSA-Klemmen</strong> der Dose A einzulegen.</p>
+            <p class="info-note">ℹ️ Die Dose B ist bereits fertig verkabelt - nutze sie als Referenz!</p>
+            <h3>So funktioniert's:</h3>
+            <ol>
+                <li>Wähle eine Kabelader aus der Seitenleiste</li>
+                <li>Klicke auf die entsprechende LSA-Klemme in Dose A</li>
+                <li>Belege alle 8 Klemmen korrekt</li>
+                <li>Prüfe deine Belegung</li>
+            </ol>
+            <p class="tip">💡 <strong>Tipp:</strong> Die Farbmarkierungen über den LSA-Klemmen zeigen die korrekte Belegung nach T568A!</p>
+        `;
+    }
 }
 
 function initThreeJS() {
@@ -110,34 +247,63 @@ function updateCableCoresUI() {
     const cableCoresContainer = document.getElementById('cable-cores');
     cableCoresContainer.innerHTML = '';
     
-    const activeCable = gameState.activeCable;
+    // Für Level 2: Kabeladern anzeigen
+    if (currentLevel === 2) {
+        const activeCable = gameState.activeCable;
 
-    T568A_COLORS.forEach(core => {
-        const coreEl = document.createElement('div');
-        coreEl.className = 'cable-core';
-        coreEl.dataset.coreId = core.id;
+        T568A_COLORS.forEach(core => {
+            const coreEl = document.createElement('div');
+            coreEl.className = 'cable-core';
+            coreEl.dataset.coreId = core.id;
 
-        const isStriped = core.color1 !== core.color2;
-        const gradient = isStriped
-            ? `linear-gradient(90deg, ${core.color1} 50%, ${core.color2} 50%)`
-            : core.color1;
+            const isStriped = core.color1 !== core.color2;
+            const gradient = isStriped
+                ? `linear-gradient(90deg, ${core.color1} 50%, ${core.color2} 50%)`
+                : core.color1;
 
-        coreEl.innerHTML = `
-            <div class="color-indicator" style="background: ${gradient};"></div>
-            <span class="core-name">${core.name}</span>
-        `;
+            coreEl.innerHTML = `
+                <div class="color-indicator" style="background: ${gradient};"></div>
+                <span class="core-name">${core.name}</span>
+            `;
+            
+            // Prüfen ob diese Ader bereits verwendet wurde
+            if (gameState.cables[activeCable].used.has(core.id)) {
+                coreEl.classList.add('used');
+            }
+
+            coreEl.addEventListener('click', () => selectCore(core.id));
+            cableCoresContainer.appendChild(coreEl);
+        });
+
+        // Panel-Titel für Level 2
+        document.querySelector('#cable-panel h3').textContent = '📦 Kabeladern';
         
-        // Prüfen ob diese Ader bereits verwendet wurde
-        if (gameState.cables[activeCable].used.has(core.id)) {
-            coreEl.classList.add('used');
+        // Socket-Status für Level 2
+        const socketStatus = document.getElementById('socket-status');
+        if (socketStatus) {
+            socketStatus.innerHTML = `
+                <div class="socket-status-item active-cable">
+                    <span>📍 Kabel 1 → Dose A:</span>
+                    <span id="socket1-progress">0/8</span>
+                </div>
+                <div class="socket-status-item completed-cable">
+                    <span>✅ Kabel 2 → Dose B:</span>
+                    <span id="socket2-progress">8/8 ✓</span>
+                </div>
+            `;
         }
-
-        coreEl.addEventListener('click', () => selectCore(core.id));
-        cableCoresContainer.appendChild(coreEl);
-    });
+    }
 }
 
 function initEventListeners() {
+    // Level Select Buttons
+    document.querySelectorAll('.level-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const level = parseInt(btn.dataset.level);
+            selectLevel(level);
+        });
+    });
+
     // Start Button
     document.getElementById('start-btn').addEventListener('click', startGame);
 
@@ -179,6 +345,10 @@ function initEventListeners() {
 
     // Canvas Click
     document.getElementById('scene').addEventListener('click', onCanvasClick);
+
+    // Level 1 spezifische Buttons
+    document.getElementById('pickup-cable-btn')?.addEventListener('click', pickupCable);
+    document.getElementById('close-deckel-btn')?.addEventListener('click', closeDeckel);
 }
 
 // ============================================
@@ -931,13 +1101,47 @@ function animateCameraTarget(targetX) {
 }
 
 function onCanvasClick(event) {
-    if (!gameState.isStarted || !gameState.selectedCore) return;
+    if (!gameState.isStarted) return;
 
     const rect = renderer.domElement.getBoundingClientRect();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
     raycaster.setFromCamera(mouse, camera);
+
+    if (currentLevel === 1) {
+        handleLevel1Click();
+    } else if (currentLevel === 2) {
+        handleLevel2Click();
+    }
+}
+
+function handleLevel1Click() {
+    if (!gameState.level1.cableInHand) return;
+
+    const intersects = raycaster.intersectObjects(kabelkanalSlots);
+
+    if (intersects.length > 0) {
+        const clickedSlot = intersects[0].object;
+        
+        if (clickedSlot.userData.filled) {
+            showFeedback('Diese Position ist bereits belegt!', 'warning');
+            return;
+        }
+
+        // Prüfen ob Reihenfolge stimmt (von links nach rechts)
+        const slotIndex = clickedSlot.userData.index;
+        if (slotIndex !== gameState.level1.placedSegments) {
+            showFeedback('Verlege das Kabel der Reihe nach von links nach rechts!', 'warning');
+            return;
+        }
+
+        placeCableSegment(clickedSlot);
+    }
+}
+
+function handleLevel2Click() {
+    if (!gameState.selectedCore) return;
 
     // Prüfen welche Dose zum aktiven Kabel gehört
     const targetSocket = gameState.activeCable;
@@ -1062,17 +1266,25 @@ function createWireToClip(cableNum, coreId, clip) {
 // ============================================
 
 function updateProgress() {
+    // Nur für Level 2
+    if (currentLevel !== 2) return;
+    
     const cable1Count = gameState.cables[1].used.size;
 
-    document.getElementById('socket1-progress').textContent = `${cable1Count}/8`;
-    document.getElementById('socket2-progress').textContent = `8/8 ✓`;
+    const socket1El = document.getElementById('socket1-progress');
+    const socket2El = document.getElementById('socket2-progress');
+    
+    if (socket1El) socket1El.textContent = `${cable1Count}/8`;
+    if (socket2El) socket2El.textContent = `8/8 ✓`;
 
     // Check-Button aktivieren wenn Kabel 1 vollständig verlegt
     const checkBtn = document.getElementById('check-btn');
-    checkBtn.disabled = !(cable1Count === 8);
+    if (checkBtn) {
+        checkBtn.disabled = !(cable1Count === 8);
 
-    if (cable1Count === 8) {
-        checkBtn.classList.add('pulse');
+        if (cable1Count === 8) {
+            checkBtn.classList.add('pulse');
+        }
     }
 }
 
@@ -1297,6 +1509,529 @@ function onWindowResize() {
     camera.aspect = container.clientWidth / container.clientHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(container.clientWidth, container.clientHeight);
+}
+
+// ============================================
+// LEVEL 1: Kabelkanal
+// ============================================
+
+function createLevel1Scene() {
+    // Beleuchtung
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(10, 20, 15);
+    directionalLight.castShadow = true;
+    scene.add(directionalLight);
+
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+    fillLight.position.set(-10, 10, -10);
+    scene.add(fillLight);
+
+    // Wand als Hintergrund
+    createWall();
+
+    // Kabelkanal erstellen
+    createKabelkanal();
+
+    // Kabelrolle/Vorrat an der Seite
+    createCableRoll();
+
+    // Kamera für Level 1 anpassen (Seitenansicht)
+    camera.position.set(0, 2, 20);
+    controls.target.set(0, 0, 0);
+}
+
+function createWall() {
+    // Wand (hellgrau)
+    const wallGeometry = new THREE.PlaneGeometry(30, 20);
+    const wallMaterial = new THREE.MeshStandardMaterial({
+        color: 0xe8e8e8,
+        roughness: 0.9,
+        side: THREE.DoubleSide
+    });
+    const wall = new THREE.Mesh(wallGeometry, wallMaterial);
+    wall.position.set(0, 0, -2);
+    wall.receiveShadow = true;
+    scene.add(wall);
+
+    // Strukturlinie für Realismus
+    const lineGeometry = new THREE.BoxGeometry(30, 0.02, 0.05);
+    const lineMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc });
+    for (let y = -8; y <= 8; y += 4) {
+        const line = new THREE.Mesh(lineGeometry, lineMaterial);
+        line.position.set(0, y, -1.9);
+        scene.add(line);
+    }
+}
+
+function createKabelkanal() {
+    const kanalGroup = new THREE.Group();
+    
+    const kanalLength = 18;
+    const kanalHeight = 1.5;
+    const kanalDepth = 1.2;
+    const wallThickness = 0.15;
+
+    // Hauptkörper des Kabelkanals (weiß)
+    const kanalMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.3
+    });
+
+    // Boden (geschlossen)
+    const bottomGeometry = new THREE.BoxGeometry(kanalLength, wallThickness, kanalDepth);
+    const bottom = new THREE.Mesh(bottomGeometry, kanalMaterial);
+    bottom.position.set(0, -kanalHeight/2, 0);
+    bottom.castShadow = true;
+    bottom.receiveShadow = true;
+    kanalGroup.add(bottom);
+
+    // Rückwand (an der Wand befestigt - geschlossen)
+    const backGeometry = new THREE.BoxGeometry(kanalLength, kanalHeight, wallThickness);
+    const back = new THREE.Mesh(backGeometry, kanalMaterial);
+    back.position.set(0, 0, -kanalDepth/2 + wallThickness/2);
+    back.castShadow = true;
+    kanalGroup.add(back);
+
+    // Decke/Oberseite (geschlossen)
+    const topGeometry = new THREE.BoxGeometry(kanalLength, wallThickness, kanalDepth);
+    const top = new THREE.Mesh(topGeometry, kanalMaterial);
+    top.position.set(0, kanalHeight/2, 0);
+    top.castShadow = true;
+    kanalGroup.add(top);
+
+    // Endkappen (links und rechts) - mit Löchern für Kabel
+    const endCapMaterial = new THREE.MeshStandardMaterial({
+        color: 0xf0f0f0,
+        roughness: 0.4
+    });
+    
+    // Linke Endkappe (mit Kabeldurchführung)
+    const leftCapGeometry = new THREE.BoxGeometry(wallThickness, kanalHeight + wallThickness, kanalDepth);
+    const leftCap = new THREE.Mesh(leftCapGeometry, endCapMaterial);
+    leftCap.position.set(-kanalLength/2, 0, 0);
+    leftCap.castShadow = true;
+    kanalGroup.add(leftCap);
+
+    // Kabeldurchführung links (Loch)
+    const holeGeometry = new THREE.CylinderGeometry(0.3, 0.3, wallThickness + 0.1, 16);
+    const holeMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+    const hole = new THREE.Mesh(holeGeometry, holeMaterial);
+    hole.rotation.z = Math.PI / 2;
+    hole.position.set(-kanalLength/2, 0, 0);
+    kanalGroup.add(hole);
+
+    // Rechte Endkappe (mit Kabeldurchführung für Ausgang zur Dose)
+    const rightCap = new THREE.Mesh(leftCapGeometry.clone(), endCapMaterial);
+    rightCap.position.set(kanalLength/2, 0, 0);
+    rightCap.castShadow = true;
+    kanalGroup.add(rightCap);
+
+    // Kabeldurchführung rechts
+    const holeRight = new THREE.Mesh(holeGeometry.clone(), holeMaterial);
+    holeRight.rotation.z = Math.PI / 2;
+    holeRight.position.set(kanalLength/2, 0, 0);
+    kanalGroup.add(holeRight);
+
+    // Vorderer Deckel (zum Schließen von der Seite/vorne)
+    // Startet geöffnet (nach vorne geklappt)
+    const deckelGeometry = new THREE.BoxGeometry(kanalLength - 0.1, kanalHeight - 0.1, wallThickness);
+    const deckelMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.3
+    });
+    kabelkanalDeckel = new THREE.Mesh(deckelGeometry, deckelMaterial);
+    // Startet offen - nach vorne gekippt
+    kabelkanalDeckel.position.set(0, -kanalHeight/2 - 0.5, kanalDepth/2 + kanalHeight/2);
+    kabelkanalDeckel.rotation.x = -Math.PI / 2;  // Liegt horizontal nach vorne
+    kabelkanalDeckel.visible = false;
+    kabelkanalDeckel.castShadow = true;
+    kanalGroup.add(kabelkanalDeckel);
+
+    // Kleine Lippe unten vorne (Scharnier-Andeutung)
+    const hingeGeometry = new THREE.BoxGeometry(kanalLength - 0.1, wallThickness * 0.5, wallThickness * 0.5);
+    const hingeMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc });
+    const hinge = new THREE.Mesh(hingeGeometry, hingeMaterial);
+    hinge.position.set(0, -kanalHeight/2 + wallThickness * 0.25, kanalDepth/2 - wallThickness * 0.25);
+    kanalGroup.add(hinge);
+
+    // Beschriftung
+    const labelCanvas = document.createElement('canvas');
+    labelCanvas.width = 512;
+    labelCanvas.height = 64;
+    const ctx = labelCanvas.getContext('2d');
+    ctx.fillStyle = '#666666';
+    ctx.font = 'bold 28px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Kabelkanal 40x40mm', 256, 40);
+    
+    const labelTexture = new THREE.CanvasTexture(labelCanvas);
+    const labelMaterial = new THREE.SpriteMaterial({ map: labelTexture });
+    const label = new THREE.Sprite(labelMaterial);
+    label.position.set(0, kanalHeight + 0.5, 0);
+    label.scale.set(6, 0.8, 1);
+    kanalGroup.add(label);
+
+    // Slot-Markierungen im Kanal (sichtbar durch offene Vorderseite)
+    const slotCount = gameState.level1.totalSegments;
+    const slotWidth = (kanalLength - 2) / slotCount;
+    
+    for (let i = 0; i < slotCount; i++) {
+        const slotX = -kanalLength/2 + 1 + slotWidth/2 + i * slotWidth;
+        
+        const slotGeometry = new THREE.BoxGeometry(slotWidth - 0.2, kanalHeight - 0.4, kanalDepth - 0.3);
+        const slotMaterial = new THREE.MeshStandardMaterial({
+            color: 0x90EE90,
+            transparent: true,
+            opacity: 0.3
+        });
+        const slot = new THREE.Mesh(slotGeometry, slotMaterial);
+        slot.position.set(slotX, 0, 0.1);
+        slot.userData = { isSlot: true, index: i, filled: false };
+        kanalGroup.add(slot);
+        kabelkanalSlots.push(slot);
+
+        // Positionsnummer
+        const numCanvas = document.createElement('canvas');
+        numCanvas.width = 64;
+        numCanvas.height = 64;
+        const numCtx = numCanvas.getContext('2d');
+        numCtx.fillStyle = '#aaaaaa';
+        numCtx.font = 'bold 40px Arial';
+        numCtx.textAlign = 'center';
+        numCtx.textBaseline = 'middle';
+        numCtx.fillText((i + 1).toString(), 32, 32);
+        
+        const numTexture = new THREE.CanvasTexture(numCanvas);
+        const numMaterial = new THREE.SpriteMaterial({ map: numTexture, transparent: true, opacity: 0.5 });
+        const numSprite = new THREE.Sprite(numMaterial);
+        numSprite.position.set(slotX, 0, kanalDepth/2 + 0.3);
+        numSprite.scale.set(0.6, 0.6, 1);
+        kanalGroup.add(numSprite);
+    }
+
+    kanalGroup.position.set(0, 0, 0);
+    scene.add(kanalGroup);
+    kabelkanalMesh = kanalGroup;
+}
+
+function createCableRoll() {
+    const rollGroup = new THREE.Group();
+    rollGroup.position.set(-12, -4, 3);
+
+    // Kabelrolle/Trommel
+    const drumGeometry = new THREE.CylinderGeometry(1.5, 1.5, 0.6, 32);
+    const drumMaterial = new THREE.MeshStandardMaterial({
+        color: 0x4a4a4a,
+        roughness: 0.7
+    });
+    const drum = new THREE.Mesh(drumGeometry, drumMaterial);
+    drum.rotation.x = Math.PI / 2;
+    rollGroup.add(drum);
+
+    // Aufgerolltes Kabel (orange)
+    const cableRollGeometry = new THREE.TorusGeometry(1.2, 0.25, 16, 64);
+    const cableMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFF8C00,
+        roughness: 0.5
+    });
+    const cableRoll = new THREE.Mesh(cableRollGeometry, cableMaterial);
+    cableRoll.rotation.y = Math.PI / 2;
+    rollGroup.add(cableRoll);
+
+    // Beschriftung
+    const labelCanvas = document.createElement('canvas');
+    labelCanvas.width = 256;
+    labelCanvas.height = 64;
+    const ctx = labelCanvas.getContext('2d');
+    ctx.fillStyle = '#FF8C00';
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Cat.7 Verlegekabel', 128, 40);
+    
+    const labelTexture = new THREE.CanvasTexture(labelCanvas);
+    const labelMaterial = new THREE.SpriteMaterial({ map: labelTexture });
+    const label = new THREE.Sprite(labelMaterial);
+    label.position.set(0, -2.5, 0);
+    label.scale.set(3, 0.8, 1);
+    rollGroup.add(label);
+
+    scene.add(rollGroup);
+
+    // Kabel von der Rolle zum linken Rand des Kabelkanals
+    // Kurve von Rolle hoch zur Wand und dann zum Kabelkanal-Eingang
+    const cableToKanal = createCablePathToKanal();
+    scene.add(cableToKanal);
+}
+
+function createCablePathToKanal() {
+    const cableGroup = new THREE.Group();
+    const cableMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFF8C00,
+        roughness: 0.5
+    });
+
+    // Kurve von Kabelrolle zum Kabelkanal-Eingang (links)
+    const points = [
+        new THREE.Vector3(-12, -3.5, 3.5),   // Start bei Kabelrolle
+        new THREE.Vector3(-12, -1, 2),        // Hoch
+        new THREE.Vector3(-11, 1, 0),         // Zur Wand
+        new THREE.Vector3(-9.5, 0, 0)         // Eingang Kabelkanal (links)
+    ];
+
+    const curve = new THREE.CatmullRomCurve3(points);
+    const tubeGeometry = new THREE.TubeGeometry(curve, 48, 0.2, 12, false);
+    const tube = new THREE.Mesh(tubeGeometry, cableMaterial);
+    tube.castShadow = true;
+    cableGroup.add(tube);
+
+    return cableGroup;
+}
+
+function pickupCable() {
+    if (!gameState.isStarted) return;
+    
+    gameState.level1.cableInHand = true;
+    showFeedback('Kabel aufgenommen! Klicke auf Position 1 im Kabelkanal.', 'success');
+    
+    // Button-Status aktualisieren
+    const pickupBtn = document.getElementById('pickup-cable-btn');
+    if (pickupBtn) {
+        pickupBtn.textContent = '📦 Kabel in der Hand';
+        pickupBtn.disabled = true;
+        pickupBtn.classList.add('active');
+    }
+
+    // Slots hervorheben
+    kabelkanalSlots.forEach(slot => {
+        if (!slot.userData.filled) {
+            slot.material.opacity = 0.5;
+        }
+    });
+}
+
+function placeCableSegment(slot) {
+    const slotPos = new THREE.Vector3();
+    slot.getWorldPosition(slotPos);
+    
+    const cableMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFF8C00,
+        roughness: 0.5
+    });
+
+    const slotIndex = slot.userData.index;
+    const kanalLength = 18;
+    const slotCount = gameState.level1.totalSegments;
+    const slotWidth = (kanalLength - 2) / slotCount;
+
+    // Berechne Start- und Endpunkt für dieses Segment
+    const segmentStartX = -kanalLength/2 + 1 + slotIndex * slotWidth;
+    const segmentEndX = segmentStartX + slotWidth;
+
+    // Wenn erstes Segment, verbinde mit Kabelkanal-Eingang
+    if (slotIndex === 0) {
+        // Kurzes Stück vom Eingang zum ersten Slot
+        const entryPoints = [
+            new THREE.Vector3(-9.5, 0, 0),  // Eingang
+            new THREE.Vector3(segmentStartX, 0, 0.3)  // Start erstes Segment
+        ];
+        const entryCurve = new THREE.CatmullRomCurve3(entryPoints);
+        const entryGeometry = new THREE.TubeGeometry(entryCurve, 8, 0.2, 12, false);
+        const entryTube = new THREE.Mesh(entryGeometry, cableMaterial);
+        entryTube.castShadow = true;
+        scene.add(entryTube);
+        cableSegmentMeshes.push(entryTube);
+    }
+
+    // Hauptsegment als durchgehendes Rohr
+    const segmentPoints = [
+        new THREE.Vector3(segmentStartX, 0, 0.3),
+        new THREE.Vector3(segmentEndX, 0, 0.3)
+    ];
+    const segmentCurve = new THREE.CatmullRomCurve3(segmentPoints);
+    const segmentGeometry = new THREE.TubeGeometry(segmentCurve, 8, 0.2, 12, false);
+    const segment = new THREE.Mesh(segmentGeometry, cableMaterial);
+    segment.castShadow = true;
+    scene.add(segment);
+    cableSegmentMeshes.push(segment);
+
+    // Wenn letztes Segment, zeige Kabelende das rausschaut
+    if (slotIndex === slotCount - 1) {
+        const endPoints = [
+            new THREE.Vector3(segmentEndX, 0, 0.3),
+            new THREE.Vector3(segmentEndX + 0.5, 0, 0.5)  // Leicht rausragend
+        ];
+        const endCurve = new THREE.CatmullRomCurve3(endPoints);
+        const endGeometry = new THREE.TubeGeometry(endCurve, 8, 0.2, 12, false);
+        const endTube = new THREE.Mesh(endGeometry, cableMaterial);
+        endTube.castShadow = true;
+        scene.add(endTube);
+        cableSegmentMeshes.push(endTube);
+    }
+
+    // Slot als gefüllt markieren
+    slot.userData.filled = true;
+    slot.material.color.setHex(0x32CD32);
+    slot.material.opacity = 0.1;
+
+    // Fortschritt aktualisieren
+    gameState.level1.placedSegments++;
+    updateLevel1Progress();
+
+    showFeedback(`Segment ${gameState.level1.placedSegments} von ${gameState.level1.totalSegments} verlegt!`, 'success');
+
+    // Prüfen ob alle Segmente verlegt
+    if (gameState.level1.placedSegments >= gameState.level1.totalSegments) {
+        gameState.level1.cableInHand = false;
+        
+        // Deckel-Button aktivieren
+        const closeBtn = document.getElementById('close-deckel-btn');
+        if (closeBtn) {
+            closeBtn.disabled = false;
+            closeBtn.classList.add('pulse');
+        }
+        
+        // Deckel sichtbar machen
+        if (kabelkanalDeckel) {
+            kabelkanalDeckel.visible = true;
+        }
+        
+        showFeedback('Alle Segmente verlegt! Schließe nun den Deckel.', 'success');
+    }
+}
+
+function closeDeckel() {
+    if (!kabelkanalDeckel) return;
+
+    const kanalDepth = 1.2;
+    const kanalHeight = 1.5;
+    
+    // Animation: Deckel klappt von vorne hoch (wie eine Tür die sich schließt)
+    // Start: horizontal liegend vor dem Kanal
+    // Ende: vertikal an der Vorderseite des Kanals
+    
+    const startRotation = -Math.PI / 2;  // Horizontal
+    const endRotation = 0;               // Vertikal
+    
+    const startY = -kanalHeight/2 - 0.5;
+    const endY = 0;
+    
+    const startZ = kanalDepth/2 + kanalHeight/2;
+    const endZ = kanalDepth/2 - 0.075;  // An der Vorderseite
+    
+    const duration = 800;
+    const startTime = Date.now();
+
+    function animateDeckel() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);  // Ease out
+
+        kabelkanalDeckel.rotation.x = startRotation + (endRotation - startRotation) * eased;
+        kabelkanalDeckel.position.y = startY + (endY - startY) * eased;
+        kabelkanalDeckel.position.z = startZ + (endZ - startZ) * eased;
+
+        if (progress < 1) {
+            requestAnimationFrame(animateDeckel);
+        } else {
+            // Level abgeschlossen
+            checkLevel1Solution();
+        }
+    }
+    animateDeckel();
+}
+
+function checkLevel1Solution() {
+    stopTimer();
+
+    // Bei Level 1 ist es einfach - wenn alle Segmente platziert wurden, ist es korrekt
+    const correct = gameState.level1.placedSegments === gameState.level1.totalSegments;
+    const score = correct ? 100 - (gameState.helpUsed * 5) : 0;
+
+    // Zeitbonus
+    const timeBonus = calculateTimeBonus();
+    const finalScore = Math.round(score * timeBonus);
+
+    showLevel1Result(finalScore);
+}
+
+function showLevel1Result(score) {
+    const modal = document.getElementById('result-modal');
+    const iconEl = document.getElementById('result-icon');
+    const scoreEl = document.getElementById('result-score');
+    const timeEl = document.getElementById('result-time');
+    const detailsEl = document.getElementById('result-details');
+    const errorsEl = document.getElementById('result-errors');
+
+    iconEl.textContent = '🏆';
+    scoreEl.innerHTML = `<span class="score-perfect">${score} Punkte</span>`;
+
+    const minutes = Math.floor(gameState.elapsedTime / 60);
+    const seconds = gameState.elapsedTime % 60;
+    timeEl.textContent = `Zeit: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+    detailsEl.innerHTML = `
+        <p>Ausgezeichnet! Das Kabel wurde korrekt im Kabelkanal verlegt.</p>
+        <p style="color: var(--primary-color); font-weight: bold;">
+            ➡️ Weiter zu Level 2: Netzwerkdose!
+        </p>
+    `;
+    
+    errorsEl.classList.add('hidden');
+
+    // Retry-Button Text ändern
+    const retryBtn = document.getElementById('result-retry');
+    retryBtn.textContent = '➡️ Level 2 starten';
+    retryBtn.onclick = () => {
+        modal.classList.add('hidden');
+        selectLevel(2);
+    };
+
+    modal.classList.remove('hidden');
+}
+
+function updateLevel1UI() {
+    const cableCoresContainer = document.getElementById('cable-cores');
+    cableCoresContainer.innerHTML = '';
+
+    // Level 1 UI (keine Adern, sondern Kabel-Aktionen)
+    const actionDiv = document.createElement('div');
+    actionDiv.className = 'level1-actions';
+    actionDiv.innerHTML = `
+        <p class="panel-description">Verlege das Kabel im Kabelkanal:</p>
+        <button id="pickup-cable-btn" class="btn btn-primary" style="width: 100%; margin-bottom: 10px;">
+            📦 Kabel aufnehmen
+        </button>
+        <button id="close-deckel-btn" class="btn btn-secondary" style="width: 100%;" disabled>
+            🔒 Deckel schließen
+        </button>
+    `;
+    cableCoresContainer.appendChild(actionDiv);
+
+    // Event Listener hinzufügen
+    document.getElementById('pickup-cable-btn').addEventListener('click', pickupCable);
+    document.getElementById('close-deckel-btn').addEventListener('click', closeDeckel);
+
+    // Panel-Titel anpassen
+    document.querySelector('#cable-panel h3').textContent = '📦 Kabel';
+    
+    // Socket-Status für Level 1 anpassen
+    const socketStatus = document.getElementById('socket-status');
+    socketStatus.innerHTML = `
+        <div class="socket-status-item active-cable">
+            <span>📏 Kabelkanal:</span>
+            <span id="level1-progress">0/${gameState.level1.totalSegments}</span>
+        </div>
+    `;
+}
+
+function updateLevel1Progress() {
+    const progressEl = document.getElementById('level1-progress');
+    if (progressEl) {
+        progressEl.textContent = `${gameState.level1.placedSegments}/${gameState.level1.totalSegments}`;
+    }
 }
 
 // ============================================
