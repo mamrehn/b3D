@@ -144,6 +144,7 @@ function resetGameState() {
         2: { assignments: {}, used: new Set() }
     };
     gameState.helpUsed = 0;
+    gameState.undoHistory = [];
     gameState.level1 = {
         cableSegments: [],
         totalSegments: 6,
@@ -594,6 +595,10 @@ function createEmbeddedSocket(kanalGroup) {
     // A/B Labels
     createFloatingLabel(socketGroup, 'A', -2.2, 4.0, 1.5, '#4169E1');
     createFloatingLabel(socketGroup, 'B', 2.2, 4.0, 1.5, '#2E8B57');
+
+    // RJ45 Port Labels (DD1-1, DD1-2) - sichtbar auf der LSA-Seite
+    createPortLabel(socketGroup, 'DD1-1', -2.2, -4.0, 1.5);
+    createPortLabel(socketGroup, 'DD1-2', 2.2, -4.0, 1.5);
 
     // T568A Beschriftung
     createStandardLabel(socketGroup, 'T568A', 0, -3.5, 1.5);
@@ -1190,6 +1195,43 @@ function createStandardLabel(parent, text, x, y, z) {
     const sprite = new THREE.Sprite(spriteMaterial);
     sprite.position.set(x, y, z);
     sprite.scale.set(1.5, 0.4, 1);
+    parent.add(sprite);
+}
+
+function createPortLabel(parent, text, x, y, z) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 128;
+    canvas.height = 48;
+
+    // Hintergrund (abgerundetes Rechteck)
+    ctx.fillStyle = '#2a2a2a';
+    ctx.beginPath();
+    ctx.roundRect(4, 4, 120, 40, 8);
+    ctx.fill();
+
+    // Weißer Rand
+    ctx.strokeStyle = '#888888';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Text
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 64, 24);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const spriteMaterial = new THREE.SpriteMaterial({ 
+        map: texture,
+        depthTest: false,
+        depthWrite: false
+    });
+    const sprite = new THREE.Sprite(spriteMaterial);
+    sprite.position.set(x, y, z);
+    sprite.scale.set(1.5, 0.6, 1);
+    sprite.renderOrder = 999;
     parent.add(sprite);
 }
 
