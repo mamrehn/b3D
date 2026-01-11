@@ -60,6 +60,7 @@ const gameState = {
         2: { assignments: {}, used: new Set() }   // Kabel 2 für Dose B
     },
     helpUsed: 0,
+    undoHistory: [],  // Undo-Verlauf für Level 2
     // Level 1 Zustand (Kabelkanal)
     level1: {
         cableSegments: [],      // Kabelsegmente die platziert wurden
@@ -331,6 +332,9 @@ function initEventListeners() {
     // Reset Button
     document.getElementById('reset-btn').addEventListener('click', resetGame);
 
+    // Undo Button
+    document.getElementById('undo-btn').addEventListener('click', undoLastAction);
+
     // Check Button
     document.getElementById('check-btn').addEventListener('click', checkSolution);
 
@@ -381,9 +385,9 @@ function createScene() {
     // Kabelkanal mit eingebetteter Dose und offenem Deckel
     createKabelkanalWithSocket();
 
-    // Kamera für Level 2 - gute Sicht auf die LSA-Klemmen im offenen Kanal
-    camera.position.set(0, 4, 12);
-    controls.target.set(0, 0, 1);
+    // Kamera für Level 2 - gute Sicht auf die Dose die auf dem Tisch liegt
+    camera.position.set(0, 3, 10);
+    controls.target.set(0, -2, 4);
 }
 
 function createWallForLevel2() {
@@ -608,7 +612,8 @@ function createEmbeddedSocket(kanalGroup) {
     frontGroup.add(frontPlate);
 
     // RJ45 Buchsen (Dose A und B)
-    [-2.2, 2.2].forEach((xPos) => {
+    const portLabels = ['DD1-1', 'DD1-2'];
+    [-2.2, 2.2].forEach((xPos, index) => {
         // RJ45 Öffnung
         const jackGeometry = new THREE.BoxGeometry(1.4, 1.2, 0.4);
         const jackMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
@@ -618,31 +623,52 @@ function createEmbeddedSocket(kanalGroup) {
 
         // RJ45 Inneres (goldene Kontakte angedeutet)
         const innerJackGeometry = new THREE.BoxGeometry(1.2, 0.9, 0.3);
-        const innerJackMaterial = new THREE.MeshStandardMaterial({ 
+        const innerJackMaterial = new THREE.MeshStandardMaterial({
             color: 0x2a2a2a,
             roughness: 0.3
         });
         const innerJack = new THREE.Mesh(innerJackGeometry, innerJackMaterial);
         innerJack.position.set(xPos, 0, -2.55);
         frontGroup.add(innerJack);
+
+        // Port-Label (DD1-1, DD1-2)
+        const labelCanvas = document.createElement('canvas');
+        const ctx = labelCanvas.getContext('2d');
+        labelCanvas.width = 128;
+        labelCanvas.height = 64;
+        ctx.fillStyle = '#333333';
+        ctx.font = 'bold 28px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(portLabels[index], 64, 32);
+
+        const labelTexture = new THREE.CanvasTexture(labelCanvas);
+        const labelMat = new THREE.SpriteMaterial({ map: labelTexture });
+        const label = new THREE.Sprite(labelMat);
+        label.position.set(xPos, -1.2, -2.6);
+        label.scale.set(1.5, 0.75, 1);
+        frontGroup.add(label);
     });
 
     socketGroup.add(frontGroup);
 
     // Dose positionieren:
+    // - Dose liegt auf dem Tisch (Z nach vorne, vor dem Kabelkanal)
     // - Rückseite (LSA-Klemmen) zeigt zum Benutzer für die Verkabelung
-    // - Nach erfolgreicher Prüfung wird die Dose gedreht (RJ45 zum Deckel)
-    socketGroup.position.set(0, 0, 0.5);
+    // - Nach erfolgreicher Prüfung wird die Dose in den Kabelkanal gesetzt
+    socketGroup.position.set(0, -2.5, 4);
     socketGroup.scale.set(0.5, 0.5, 0.5);
+    // Dose liegt flach auf dem Tisch (LSA-Klemmen zeigen nach oben)
+    socketGroup.rotation.x = -Math.PI / 2;
     
     scene.add(socketGroup);
     socketMesh = socketGroup;
 
-    // Kabel 1 (zum Spielen) - links von der Dose, parallel zum Kanal
-    createEthernetCableAtSocket(1, -4, 0, 0.5);
-    
-    // Kabel 2 (fertig) - rechts von der Dose, parallel zum Kanal
-    createCompletedCableAtSocket(2, 4, 0, 0.5);
+    // Kabel 1 (zum Spielen) - kommt von links, hinter der Dose
+    createEthernetCableAtSocket(1, -5, 0, 3.2);
+
+    // Kabel 2 (fertig) - kommt auch von links (leicht versetzt in Y)
+    createCompletedCableAtSocket(2, -5, -0.4, 3.2);
 }
 
 function createEthernetCableAtSocket(cableNum, x, y, z) {
@@ -654,20 +680,20 @@ function createEthernetCableAtSocket(cableNum, x, y, z) {
         roughness: 0.5
     });
 
-    // Kabelmantel - horizontal parallel zum Kanal (X-Richtung)
-    const cableGeometry = new THREE.CylinderGeometry(0.15, 0.15, 3, 16);
+    // Kabelmantel - durchgehend von links
+    const cableLength = 4;
+    const cableGeometry = new THREE.CylinderGeometry(0.15, 0.15, cableLength, 16);
     const cable = new THREE.Mesh(cableGeometry, cableMaterial);
     cable.rotation.z = Math.PI / 2; // Horizontal entlang X-Achse
-    // Kabel zeigt von außen zur Dose (bei negativem x nach rechts, bei positivem nach links)
-    const direction = x < 0 ? 1 : -1;
-    cable.position.set(direction * 1.5, 0, 0);
+    cable.position.set(-cableLength / 2, 0, 0); // Kabel endet bei x=0
     cableGroup.add(cable);
 
-    // Kabelende (wo die Adern rauskommen)
-    const cableEndGeometry = new THREE.CylinderGeometry(0.15, 0.1, 0.3, 16);
+    // Kabelende (konisch, wo die Adern rauskommen) - direkt anschließend
+    const taperLength = 0.3;
+    const cableEndGeometry = new THREE.CylinderGeometry(0.15, 0.06, taperLength, 16);
     const cableEnd = new THREE.Mesh(cableEndGeometry, cableMaterial);
     cableEnd.rotation.z = Math.PI / 2;
-    cableEnd.position.set(0, 0, 0);
+    cableEnd.position.set(taperLength / 2, 0, 0); // Beginnt bei x=0, endet bei x=0.3
     cableGroup.add(cableEnd);
 
     // Kabel-Label
@@ -680,27 +706,28 @@ function createEthernetCableAtSocket(cableNum, x, y, z) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(`Kabel ${cableNum}`, 64, 32);
-    
+
     const labelTexture = new THREE.CanvasTexture(labelCanvas);
     const labelMat = new THREE.SpriteMaterial({ map: labelTexture });
     const label = new THREE.Sprite(labelMat);
-    label.position.set(direction * 1.5, 0.6, 0);
+    label.position.set(-2, 0.6, 0);
     label.scale.set(1.2, 0.6, 1);
     cableGroup.add(label);
 
-    // Abisolierte Kabeladern - fächern sich zur Dose hin auf
+    // Abisolierte Kabeladern - kurze Stücke die aus dem Kabel ragen
+    const wireStartX = 0.3; // Beginnen wo das konische Ende aufhört
     T568A_COLORS.forEach((core, index) => {
-        const wireGeometry = new THREE.CylinderGeometry(0.03, 0.03, 1.0, 8);
+        const wireGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.5, 8);
         const wireMaterial = createWireMaterial(core);
 
         const wire = new THREE.Mesh(wireGeometry, wireMaterial);
 
         // Adern fächern sich auf (Y und Z Richtung)
         const spreadY = ((index % 4) - 1.5) * 0.1;
-        const spreadZ = index < 4 ? 0.15 : -0.15;
-        
+        const spreadZ = index < 4 ? 0.1 : -0.1;
+
         wire.rotation.z = Math.PI / 2; // Horizontal
-        wire.position.set(-direction * 0.5, spreadY, spreadZ);
+        wire.position.set(wireStartX + 0.25, spreadY, spreadZ);
 
         wire.userData = { coreId: core.id, cableNum: cableNum };
         cableGroup.add(wire);
@@ -720,13 +747,21 @@ function createCompletedCableAtSocket(cableNum, x, y, z) {
         roughness: 0.5
     });
 
-    // Kabelmantel - horizontal parallel zum Kanal (X-Richtung)
-    const cableGeometry = new THREE.CylinderGeometry(0.15, 0.15, 3, 16);
+    // Kabelmantel - durchgehend von links
+    const cableLength = 4;
+    const cableGeometry = new THREE.CylinderGeometry(0.15, 0.15, cableLength, 16);
     const cable = new THREE.Mesh(cableGeometry, cableMaterial);
-    cable.rotation.z = Math.PI / 2; // Horizontal entlang X-Achse
-    const direction = x < 0 ? 1 : -1;
-    cable.position.set(direction * 1.5, 0, 0);
+    cable.rotation.z = Math.PI / 2;
+    cable.position.set(-cableLength / 2, 0, 0);
     cableGroup.add(cable);
+
+    // Kabelende (konisch) - direkt anschließend
+    const taperLength = 0.3;
+    const cableEndGeometry = new THREE.CylinderGeometry(0.15, 0.06, taperLength, 16);
+    const cableEnd = new THREE.Mesh(cableEndGeometry, cableMaterial);
+    cableEnd.rotation.z = Math.PI / 2;
+    cableEnd.position.set(taperLength / 2, 0, 0);
+    cableGroup.add(cableEnd);
 
     // Label
     const labelCanvas = document.createElement('canvas');
@@ -738,17 +773,20 @@ function createCompletedCableAtSocket(cableNum, x, y, z) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('Kabel 2 ✓', 64, 32);
-    
+
     const labelTexture = new THREE.CanvasTexture(labelCanvas);
     const labelMat = new THREE.SpriteMaterial({ map: labelTexture });
     const label = new THREE.Sprite(labelMat);
-    label.position.set(direction * 1.5, 0.6, 0);
+    label.position.set(-2, 0.6, 0);
     label.scale.set(1.2, 0.6, 1);
     cableGroup.add(label);
 
+    cableMeshes[cableNum] = cableGroup;
     scene.add(cableGroup);
 
-    // Fertige Drähte zur Dose B (Klemmen bei x=2.2*0.5 = 1.1)
+    // Fertige Drähte zur Dose B
+    // Dose ist bei (0, -2.5, 4) mit rotation.x = -PI/2 (liegt flach auf Tisch)
+    // Bei rotation.x = -PI/2: lokal Y -> Welt -Z, lokal Z -> Welt +Y
     const completedWires = [
         { coreId: 'wo', row: 'top', index: 0 },
         { coreId: 'o', row: 'top', index: 1 },
@@ -761,32 +799,53 @@ function createCompletedCableAtSocket(cableNum, x, y, z) {
     ];
 
     const scale = 0.5;
+    const socketBaseX = 0;
+    const socketBaseY = -2.5;
+    const socketBaseZ = 4;
+
+    // LSA Block B: centerX=2.2, centerY=0.5 (in lokalen Koordinaten)
+    const centerX = 2.2;
+    const centerY = 0.5;
+
     completedWires.forEach((wireInfo, idx) => {
         const core = T568A_COLORS.find(c => c.id === wireInfo.coreId);
-        
-        // Zielposition der Klemme (Dose B bei x=2.2*scale)
-        const baseX = 2.2 * scale;
-        const clipX = baseX - 0.75 * scale + wireInfo.index * 0.5 * scale;
-        const clipY = (wireInfo.row === 'top' ? 1.3 : 0.3) * scale;
-        const clipZ = 0.5 + 1.0 * scale; // Dosenposition z=0.5
 
-        // Startposition - Kabel ist jetzt horizontal
-        const spreadY = ((idx % 4) - 1.5) * 0.1;
-        const spreadZ = idx < 4 ? 0.15 : -0.15;
-        const startPos = new THREE.Vector3(x + direction * 0.5, y + spreadY, z + spreadZ);
+        // Lokale Clip-Position (vor Skalierung und Rotation)
+        const localX = centerX - 0.75 + wireInfo.index * 0.5;
+        const localY = wireInfo.row === 'top' ? (centerY + 0.8) : (centerY - 0.2);
+        const localZ = 1.05;
+
+        // Transformation: erst scale, dann rotation.x = -PI/2
+        // rotation.x = -PI/2 bedeutet: (x, y, z) -> (x, z, -y)
+        // Welt = socketBase + (localX * scale, localZ * scale, -localY * scale)
+        const clipX = socketBaseX + localX * scale;
+        const clipY = socketBaseY + localZ * scale;
+        const clipZ = socketBaseZ - localY * scale;
+
+        // Startposition - Adern kommen aus dem Kabelende
+        const wireStartX = 0.55;
+        const spreadY = ((idx % 4) - 1.5) * 0.08;
+        const spreadZ = idx < 4 ? 0.08 : -0.08;
+        const startPos = new THREE.Vector3(x + wireStartX, y + spreadY, z + spreadZ);
 
         const endPos = new THREE.Vector3(clipX, clipY, clipZ);
 
+        // Kurve: von hinten nach oben schwingen, dann von oben auf die Klemme
+        const highPointY = Math.max(startPos.y, endPos.y) + 1.0;
+        const midZ = (startPos.z + endPos.z) / 2;
         const curve = new THREE.CatmullRomCurve3([
             startPos,
-            new THREE.Vector3(startPos.x * 0.5 + endPos.x * 0.5, startPos.y, (startPos.z + endPos.z) / 2),
+            new THREE.Vector3(startPos.x + 2, startPos.y + 0.5, startPos.z + 0.3),
+            new THREE.Vector3((startPos.x + endPos.x) / 2 + 0.5, highPointY, midZ),
+            new THREE.Vector3(endPos.x, endPos.y + 0.4, endPos.z),
             endPos
         ]);
 
-        const tubeGeometry = new THREE.TubeGeometry(curve, 32, 0.025, 8, false);
+        const tubeGeometry = new THREE.TubeGeometry(curve, 48, 0.025, 8, false);
         const wireMaterial = createWireMaterial(core);
         const wire = new THREE.Mesh(tubeGeometry, wireMaterial);
         scene.add(wire);
+        wireMeshes[2].push(wire);
     });
 }
 
@@ -1495,6 +1554,15 @@ function assignCoreToClip(coreId, clip) {
     // Draht zum Clip erstellen
     createWireToClip(cableNum, coreId, clip);
 
+    // Aktion im Undo-Verlauf speichern
+    gameState.undoHistory.push({
+        cableNum: cableNum,
+        coreId: coreId,
+        clipKey: clipKey,
+        clip: clip
+    });
+    updateUndoButton();
+
     // UI aktualisieren
     updateCableCoresUI();
     updateProgress();
@@ -1511,33 +1579,35 @@ function assignCoreToClip(coreId, clip) {
 function createWireToClip(cableNum, coreId, clip) {
     const core = T568A_COLORS.find(c => c.id === coreId);
     const cableGroup = cableMeshes[cableNum];
-    
+
     // Weltposition des Clips
     const clipWorldPos = new THREE.Vector3();
     clip.getWorldPosition(clipWorldPos);
 
     // Startposition (vom Kabelende - wo die Adern rauskommen)
-    // Kabel ist jetzt horizontal (parallel zum Kanal)
+    // Kabel kommt von links und zeigt nach rechts
     const cablePos = cableGroup.position.clone();
     const coreIndex = T568A_COLORS.findIndex(c => c.id === coreId);
-    
+
     // Berechne die Aderposition am Kabelende (passend zu createEthernetCableAtSocket)
-    // Adern sind jetzt in Y und Z aufgefächert, Kabel verläuft in X
-    const direction = cablePos.x < 0 ? -1 : 1; // Richtung zur Dose
+    const wireStartX = 0.55;
     const spreadY = ((coreIndex % 4) - 1.5) * 0.1;
-    const spreadZ = coreIndex < 4 ? 0.15 : -0.15;
+    const spreadZ = coreIndex < 4 ? 0.1 : -0.1;
     const startPos = new THREE.Vector3(
-        cablePos.x - direction * 0.5,  // Ende der abisolierten Adern (Richtung Dose)
+        cablePos.x + wireStartX,
         cablePos.y + spreadY,
         cablePos.z + spreadZ
     );
 
-    // Kurve zur Klemme
+    // Kurve: von hinten nach oben schwingen, dann von oben auf die Klemme
+    const highPointY = Math.max(startPos.y, clipWorldPos.y) + 1.0;
+    const midZ = (startPos.z + clipWorldPos.z) / 2;
     const curve = new THREE.CatmullRomCurve3([
         startPos,
-        new THREE.Vector3((startPos.x + clipWorldPos.x) / 2, startPos.y, startPos.z),
-        new THREE.Vector3(clipWorldPos.x, (startPos.y + clipWorldPos.y) / 2, (startPos.z + clipWorldPos.z) / 2),
-        new THREE.Vector3(clipWorldPos.x, clipWorldPos.y, clipWorldPos.z + 0.2)
+        new THREE.Vector3(startPos.x + 2, startPos.y + 0.5, startPos.z + 0.3),
+        new THREE.Vector3((startPos.x + clipWorldPos.x) / 2 + 0.5, highPointY, midZ),
+        new THREE.Vector3(clipWorldPos.x, clipWorldPos.y + 0.4, clipWorldPos.z),
+        clipWorldPos
     ]);
 
     const tubeGeometry = new THREE.TubeGeometry(curve, 48, 0.03, 8, false);
@@ -1548,6 +1618,49 @@ function createWireToClip(cableNum, coreId, clip) {
     scene.add(wire);
 
     wireMeshes[cableNum].push(wire);
+}
+
+function undoLastAction() {
+    if (gameState.undoHistory.length === 0) {
+        showFeedback('Nichts zum Rückgängig machen', 'warning');
+        return;
+    }
+
+    const lastAction = gameState.undoHistory.pop();
+    const { cableNum, coreId, clipKey, clip } = lastAction;
+
+    // Zuweisung entfernen
+    delete gameState.cables[cableNum].assignments[clipKey];
+    gameState.cables[cableNum].used.delete(coreId);
+    clip.userData.assigned = null;
+
+    // Clip zurücksetzen (grau)
+    clip.material.color = new THREE.Color(0x888888);
+    clip.material.emissive = new THREE.Color(0x000000);
+    clip.material.emissiveIntensity = 0;
+
+    // Letzten Draht entfernen
+    if (wireMeshes[cableNum].length > 0) {
+        const wire = wireMeshes[cableNum].pop();
+        scene.remove(wire);
+        wire.geometry.dispose();
+        wire.material.dispose();
+    }
+
+    // UI aktualisieren
+    updateCableCoresUI();
+    updateProgress();
+    updateUndoButton();
+
+    const core = T568A_COLORS.find(c => c.id === coreId);
+    showFeedback(`${core.name} entfernt`, 'info');
+}
+
+function updateUndoButton() {
+    const undoBtn = document.getElementById('undo-btn');
+    if (undoBtn) {
+        undoBtn.disabled = gameState.undoHistory.length === 0;
+    }
 }
 
 // ============================================
@@ -1731,29 +1844,67 @@ function showResult(correct, total, errors, score) {
 }
 
 function rotateSocketToFront() {
-    // Animierte Drehung der Dose um 180° (RJ45-Buchsen zeigen zum Deckel)
+    // Animierte Bewegung der Dose vom Tisch in den Kabelkanal
+    // Endposition: vertikal im Kanal, RJ45-Buchsen zeigen zur Kamera
     if (!socketMesh) return;
-    
-    const targetRotation = Math.PI; // 180°
-    const duration = 1500; // 1.5 Sekunden
-    const startRotation = socketMesh.rotation.y;
+
+    const duration = 2000; // 2 Sekunden
     const startTime = Date.now();
-    
-    function animateRotation() {
+
+    // Startposition Dose (auf dem Tisch, flach liegend)
+    const startPos = socketMesh.position.clone();
+    const startRotX = socketMesh.rotation.x;
+    const startRotY = socketMesh.rotation.y;
+
+    // Zielposition Dose (im Kabelkanal, vertikal, RJ45 zur Kamera)
+    const targetPos = new THREE.Vector3(0, 0, 0.5);
+    const targetRotX = 0; // Aufrecht
+    const targetRotY = Math.PI; // RJ45-Seite (Vorderseite) zur Kamera
+
+    // Kabel-Startpositionen speichern
+    const cable1Start = cableMeshes[1] ? cableMeshes[1].position.clone() : null;
+    const cable2Start = cableMeshes[2] ? cableMeshes[2].position.clone() : null;
+
+    // Kabel-Zielpositionen (im Kabelkanal, horizontal - nah an der Dose)
+    const cable1Target = new THREE.Vector3(-2, 0.2, 0.5);
+    const cable2Target = new THREE.Vector3(-2, -0.2, 0.5);
+
+    // Drähte ausblenden (sie sind jetzt "hinter" der Dose im Kanal)
+    wireMeshes[1].forEach(wire => {
+        wire.visible = false;
+    });
+    wireMeshes[2].forEach(wire => {
+        wire.visible = false;
+    });
+
+    function animateInstallation() {
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
-        
-        // Easing (ease-out)
-        const eased = 1 - Math.pow(1 - progress, 3);
-        
-        socketMesh.rotation.y = startRotation + (targetRotation - startRotation) * eased;
-        
+
+        // Easing (ease-in-out)
+        const eased = progress < 0.5
+            ? 4 * progress * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+        // Dose Position und Rotation interpolieren
+        socketMesh.position.lerpVectors(startPos, targetPos, eased);
+        socketMesh.rotation.x = startRotX + (targetRotX - startRotX) * eased;
+        socketMesh.rotation.y = startRotY + (targetRotY - startRotY) * eased;
+
+        // Kabel mitbewegen
+        if (cableMeshes[1] && cable1Start) {
+            cableMeshes[1].position.lerpVectors(cable1Start, cable1Target, eased);
+        }
+        if (cableMeshes[2] && cable2Start) {
+            cableMeshes[2].position.lerpVectors(cable2Start, cable2Target, eased);
+        }
+
         if (progress < 1) {
-            requestAnimationFrame(animateRotation);
+            requestAnimationFrame(animateInstallation);
         }
     }
-    
-    animateRotation();
+
+    animateInstallation();
     showFeedback('Dose wird eingebaut - RJ45-Buchsen zeigen jetzt nach vorne!', 'success');
 }
 
@@ -1771,31 +1922,46 @@ function resetGame() {
         1: { assignments: {}, used: new Set() },
         2: { assignments: {}, used: new Set() }
     };
+    gameState.undoHistory = [];
+    updateUndoButton();
 
-    // Dose zurückdrehen (LSA-Klemmen wieder sichtbar)
+    // Dose zurück auf den Tisch (flach liegend, LSA-Klemmen nach oben)
     if (socketMesh) {
+        socketMesh.position.set(0, -2.5, 4);
+        socketMesh.rotation.x = -Math.PI / 2;
         socketMesh.rotation.y = 0;
+    }
+
+    // Kabel zurück auf Startposition
+    if (cableMeshes[1]) {
+        cableMeshes[1].position.set(-5, 0, 3.2);
+    }
+    if (cableMeshes[2]) {
+        cableMeshes[2].position.set(-5, -0.4, 3.2);
     }
 
     // Timer Display zurücksetzen
     document.getElementById('timer-display').textContent = '00:00';
 
-    // LSA-Clips zurücksetzen
-    [1, 2].forEach(cableNum => {
-        lsaClipMeshes[cableNum].forEach(clip => {
-            clip.material.color = new THREE.Color(0x888888);
-            clip.material.emissive = new THREE.Color(0x000000);
-            clip.material.emissiveIntensity = 0;
-            clip.userData.assigned = null;
-        });
+    // LSA-Clips zurücksetzen (nur für Kabel 1, Kabel 2 ist bereits fertig)
+    lsaClipMeshes[1].forEach(clip => {
+        clip.material.color = new THREE.Color(0x888888);
+        clip.material.emissive = new THREE.Color(0x000000);
+        clip.material.emissiveIntensity = 0;
+        clip.userData.assigned = null;
+    });
 
-        // Drähte entfernen
-        wireMeshes[cableNum].forEach(wire => {
-            scene.remove(wire);
-            wire.geometry.dispose();
-            wire.material.dispose();
-        });
-        wireMeshes[cableNum] = [];
+    // Drähte von Kabel 1 entfernen
+    wireMeshes[1].forEach(wire => {
+        scene.remove(wire);
+        wire.geometry.dispose();
+        wire.material.dispose();
+    });
+    wireMeshes[1] = [];
+
+    // Drähte von Kabel 2 wieder sichtbar machen (wurden beim Einbau versteckt)
+    wireMeshes[2].forEach(wire => {
+        wire.visible = true;
     });
 
     // UI zurücksetzen
