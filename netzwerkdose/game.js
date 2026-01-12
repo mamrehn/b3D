@@ -2702,11 +2702,11 @@ function createServerRoom() {
     const kanalGeometry = new THREE.BoxGeometry(3, 1.5, 0.8);
     const kanalMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc });
     const kanalAuslass = new THREE.Mesh(kanalGeometry, kanalMaterial);
-    kanalAuslass.position.set(-12, 4, -4.5);
+    kanalAuslass.position.set(-10.5, 4, -4.5);
     scene.add(kanalAuslass);
 
     // Label für Kabelkanal
-    createLevel3Label(scene, 'Kabelkanal\n24 Verlegekabel', -12, 6, -4);
+    createLevel3Label(scene, 'Kabelkanal\n24 Verlegekabel', -10.5, 6, -4);
 }
 
 function create19InchRack() {
@@ -2947,9 +2947,9 @@ function createWallCables() {
         const targetX = startX + i * spacing;
         
         // Kabel verläuft vom Kabelkanal zum Patchpanel
-        // Gestaffelte Austrittspunkte aus dem Kabelkanal
+        // Gestaffelte Austrittspunkte aus dem Kabelkanal (zentriert im 3-Einheiten breiten Kanal)
         const kanalExitY = 4 + (i % 4) * 0.15;
-        const kanalExitX = -12 + (i * 0.1);
+        const kanalExitX = -11.5 + (i * 0.09);
         
         const curve = new THREE.CatmullRomCurve3([
             new THREE.Vector3(kanalExitX, kanalExitY, -4.3),           // Kabelkanal-Auslass
@@ -2973,7 +2973,7 @@ function createWallCables() {
     }
 
     // Labels für die Kabel
-    createLevel3Label(scene, 'Orange = DD1-1\n(aus Level 1 & 2)', -14, 6, 0);
+    createLevel3Label(scene, 'Orange = DD1-1\n(aus Level 1 & 2)', -12.5, 6, 0);
 }
 
 function createSmallPortLabel(parent, text, x, y, z) {
