@@ -18,10 +18,10 @@ const LEVELS = {
         icon: '🔌'
     },
     3: {
-        name: 'Patchpanel & Switch',
-        description: 'Verbinde Patchpanel-Ports mit dem Switch per Patchkabel',
+        name: 'Patchpanel & Switches',
+        description: 'Verbinde alle 24 Patchpanel-Ports mit den Switches',
         icon: '🖥️',
-        timeLimit: 120  // 2 Minuten Zeitlimit
+        timeLimit: 180  // 3 Minuten Zeitlimit für 24 Verbindungen
     }
 };
 
@@ -70,13 +70,13 @@ const gameState = {
         selectedSegment: null,
         cableInHand: false
     },
-    // Level 3 Zustand (Patchpanel & Switch)
+    // Level 3 Zustand (Patchpanel & Switches)
     level3: {
         selectedPatchPort: null,    // Ausgewählter Patchpanel-Port
         selectedSwitchPort: null,   // Ausgewählter Switch-Port
-        connections: [],             // Hergestellte Verbindungen [{patchPort, switchPort}]
-        requiredConnections: 2,      // Anzahl der zu verbindenden Ports (DD1-1 und DD1-2)
-        timeRemaining: 120,          // Verbleibende Zeit in Sekunden
+        connections: [],             // Hergestellte Verbindungen [{patchPort, switchPort, targetSwitch}]
+        requiredConnections: 24,     // Alle 24 Ports müssen verbunden werden
+        timeRemaining: 180,          // Verbleibende Zeit in Sekunden
         timerActive: false
     }
 };
@@ -99,11 +99,13 @@ let kabelkanalDeckel = null;        // Deckel zum Schließen
 // Level 3 spezifische 3D-Objekte
 let rackMesh = null;                // 19" Rack
 let patchpanelMesh = null;          // Patchpanel
-let switchMesh = null;              // Netzwerk-Switch
+let switch1Mesh = null;             // Switch Büro 1 (oberer Switch)
+let switch2Mesh = null;             // Switch Büro 2 (unterer Switch)
 let patchPortMeshes = [];           // Patchpanel RJ45-Ports (24 Stück)
-let switchPortMeshes = [];          // Switch RJ45-Ports (24 Stück)
+let switch1PortMeshes = [];         // Switch 1 RJ45-Ports (16 Stück)
+let switch2PortMeshes = [];         // Switch 2 RJ45-Ports (16 Stück)
 let patchCableMeshes = [];          // Verlegte Patchkabel
-let wallCableMesh = null;           // Kabel von der Wand zum Patchpanel
+let wallCableMeshes = [];           // Kabel von der Wand zum Patchpanel (24 Stück)
 
 // ============================================
 // Initialisierung
@@ -193,9 +195,10 @@ function resetGameState() {
     
     // Level 3 3D objects
     patchPortMeshes = [];
-    switchPortMeshes = [];
+    switch1PortMeshes = [];
+    switch2PortMeshes = [];
     patchCableMeshes = [];
-    wallCableMesh = null;
+    wallCableMeshes = [];
 }
 
 function updateStartModal() {
@@ -233,19 +236,18 @@ function updateStartModal() {
             <p class="tip">💡 <strong>Tipp:</strong> Die Farbmarkierungen über den LSA-Klemmen zeigen die korrekte Belegung nach T568A!</p>
         `;
     } else if (currentLevel === 3) {
-        header.textContent = '🖥️ Level 3: Patchpanel & Switch';
+        header.textContent = '🖥️ Level 3: Patchpanel & Switches';
         body.innerHTML = `
             <p>Willkommen zu Level 3!</p>
-            <p>Die Netzwerkdose ist fertig verkabelt. Jetzt musst du im <strong>Serverraum</strong> die Verbindung herstellen!</p>
-            <p class="info-note">⏱️ <strong>Zeitlimit: 2 Minuten!</strong> Die LSA-Verbindungen am Patchpanel sind bereits fertig.</p>
+            <p>Im <strong>Serverraum</strong> sind 24 Verlegekabel am Patchpanel aufgelegt. Jetzt müssen alle Ports mit den Switches verbunden werden!</p>
+            <p class="info-note">⏱️ <strong>Zeitlimit: 3 Minuten!</strong></p>
             <h3>Deine Aufgabe:</h3>
             <ol>
-                <li>Verbinde die Patchpanel-Ports <strong>DD1-1</strong> und <strong>DD1-2</strong> mit dem Switch</li>
-                <li>Klicke auf einen Patchpanel-Port</li>
-                <li>Klicke dann auf einen freien Switch-Port</li>
-                <li>Ein Patchkabel wird automatisch verlegt</li>
+                <li>Verbinde <strong>Ports 1-12</strong> des Patchpanels mit <strong>Switch Büro 1</strong> (oben)</li>
+                <li>Verbinde <strong>Ports 13-24</strong> des Patchpanels mit <strong>Switch Büro 2</strong> (unten)</li>
+                <li>Klicke auf einen Patchpanel-Port, dann auf den passenden Switch-Port</li>
             </ol>
-            <p class="tip">💡 <strong>Tipp:</strong> Port 1 am Patchpanel ist bereits als Referenz verbunden!</p>
+            <p class="tip">💡 <strong>Tipp:</strong> Das <span style="color: #FF8C00;">orangene Kabel</span> ist das Kabel aus Level 1 & 2 (DD1-1). Die anderen 23 Kabel sind <span style="color: #FFD700;">gelb</span>.</p>
         `;
     }
 }
@@ -2639,7 +2641,7 @@ function updateLevel1Progress() {
 }
 
 // ============================================
-// LEVEL 3: Patchpanel & Switch
+// LEVEL 3: Patchpanel & Switches
 // ============================================
 
 function createLevel3Scene() {
@@ -2661,20 +2663,20 @@ function createLevel3Scene() {
     // Serverraum Hintergrund
     createServerRoom();
 
-    // 19" Rack erstellen
+    // 19" Rack erstellen (breiter für 24 Ports)
     create19InchRack();
 
-    // Kabel von der Wand zum Patchpanel
-    createWallToPatchpanelCable();
+    // 24 Kabel von der Wand zum Patchpanel
+    createWallCables();
 
     // Kamera für Level 3 (Frontalansicht auf Rack)
-    camera.position.set(0, 0, 12);
+    camera.position.set(0, 0, 14);
     controls.target.set(0, 0, 0);
 }
 
 function createServerRoom() {
     // Boden (dunkelgrau/Antistatik-Optik)
-    const floorGeometry = new THREE.PlaneGeometry(30, 20);
+    const floorGeometry = new THREE.PlaneGeometry(40, 25);
     const floorMaterial = new THREE.MeshStandardMaterial({
         color: 0x2a2a2a,
         roughness: 0.8
@@ -2686,7 +2688,7 @@ function createServerRoom() {
     scene.add(floor);
 
     // Rückwand
-    const wallGeometry = new THREE.PlaneGeometry(30, 20);
+    const wallGeometry = new THREE.PlaneGeometry(40, 25);
     const wallMaterial = new THREE.MeshStandardMaterial({
         color: 0x3a3a4a,
         roughness: 0.7
@@ -2696,23 +2698,23 @@ function createServerRoom() {
     backWall.receiveShadow = true;
     scene.add(backWall);
 
-    // Kabelkanal an der Wand (von wo das Kabel kommt)
-    const kanalGeometry = new THREE.BoxGeometry(1.5, 0.8, 0.5);
+    // Großer Kabelkanal an der Wand (für 24 Kabel)
+    const kanalGeometry = new THREE.BoxGeometry(3, 1.5, 0.8);
     const kanalMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc });
     const kanalAuslass = new THREE.Mesh(kanalGeometry, kanalMaterial);
-    kanalAuslass.position.set(-10, 3, -4.5);
+    kanalAuslass.position.set(-12, 4, -4.5);
     scene.add(kanalAuslass);
 
     // Label für Kabelkanal
-    createLevel3Label(scene, 'Kabelkanal\n→ DD1', -10, 4.5, -4);
+    createLevel3Label(scene, 'Kabelkanal\n24 Verlegekabel', -12, 6, -4);
 }
 
 function create19InchRack() {
     const rackGroup = new THREE.Group();
     
-    // 19" Rack Maße (vereinfacht)
-    const rackWidth = 6;      // ~48cm in 3D Einheiten
-    const rackHeight = 12;    // Höhe des Racks
+    // 19" Rack Maße (breiter für 24 Ports in einer Reihe)
+    const rackWidth = 10;     // Breiter für 24 Ports
+    const rackHeight = 10;    // Höhe des Racks
     const rackDepth = 3;
     
     // Rack-Rahmen (schwarz)
@@ -2761,22 +2763,25 @@ function create19InchRack() {
     scene.add(rackGroup);
     rackMesh = rackGroup;
 
-    // Patchpanel im Rack (oben)
-    createPatchpanel(rackGroup, 0, 3.5, rackDepth/2 - 0.3);
+    // Patchpanel im Rack (oben) - 24 Ports in einer Reihe
+    createPatchpanel24(rackGroup, 0, 3, rackDepth/2 - 0.3);
 
-    // Switch im Rack (darunter)
-    createSwitch(rackGroup, 0, 1.5, rackDepth/2 - 0.3);
+    // Switch Büro 1 im Rack (Mitte) - 16 Ports, für Patchpanel Ports 1-12
+    createSwitch16(rackGroup, 0, 1, rackDepth/2 - 0.3, 1, 'Switch Büro 1');
+
+    // Switch Büro 2 im Rack (unten) - 16 Ports, für Patchpanel Ports 13-24
+    createSwitch16(rackGroup, 0, -1, rackDepth/2 - 0.3, 2, 'Switch Büro 2');
 
     // Rack-Beschriftung
-    createLevel3Label(rackGroup, '19" Rack', 0, rackHeight/2 + 0.8, rackDepth/2);
+    createLevel3Label(rackGroup, '19" Rack - Serverraum', 0, rackHeight/2 + 0.8, rackDepth/2);
 }
 
-function createPatchpanel(parent, x, y, z) {
+function createPatchpanel24(parent, x, y, z) {
     const panelGroup = new THREE.Group();
     panelGroup.position.set(x, y, z);
 
-    // Patchpanel-Gehäuse (1 HE = 1.75")
-    const panelWidth = 5.5;
+    // Patchpanel-Gehäuse (1 HE = 1.75") - breiter für 24 Ports
+    const panelWidth = 9;
     const panelHeight = 0.8;
     const panelDepth = 0.4;
 
@@ -2790,72 +2795,76 @@ function createPatchpanel(parent, x, y, z) {
     panelGroup.add(panel);
 
     // Beschriftungsstreifen oben
-    const labelStripGeometry = new THREE.BoxGeometry(panelWidth - 0.2, 0.15, 0.05);
+    const labelStripGeometry = new THREE.BoxGeometry(panelWidth - 0.2, 0.12, 0.05);
     const labelStripMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
     const labelStrip = new THREE.Mesh(labelStripGeometry, labelStripMaterial);
-    labelStrip.position.set(0, panelHeight/2 - 0.15, panelDepth/2 + 0.03);
+    labelStrip.position.set(0, panelHeight/2 - 0.12, panelDepth/2 + 0.03);
     panelGroup.add(labelStrip);
 
-    // 24 RJ45 Ports (2 Reihen à 12)
-    const portsPerRow = 12;
-    const portWidth = 0.35;
-    const portHeight = 0.25;
-    const startX = -panelWidth/2 + 0.4;
-    const spacing = (panelWidth - 0.8) / (portsPerRow - 1);
+    // 24 RJ45 Ports in einer Reihe
+    const numPorts = 24;
+    const portWidth = 0.3;
+    const portHeight = 0.22;
+    const startX = -panelWidth/2 + 0.45;
+    const spacing = (panelWidth - 0.9) / (numPorts - 1);
 
-    for (let row = 0; row < 2; row++) {
-        for (let col = 0; col < portsPerRow; col++) {
-            const portNum = row * portsPerRow + col + 1;
-            const portX = startX + col * spacing;
-            const portY = row === 0 ? 0.15 : -0.15;
+    for (let i = 0; i < numPorts; i++) {
+        const portNum = i + 1;
+        const portX = startX + i * spacing;
 
-            // Port-Gehäuse
-            const portGeometry = new THREE.BoxGeometry(portWidth, portHeight, 0.15);
-            const isConnected = portNum === 1; // Port 1 als Referenz bereits verbunden
-            const portMaterial = new THREE.MeshStandardMaterial({
-                color: isConnected ? 0x22aa22 : 0x1a1a1a,
-                roughness: 0.7
-            });
-            const port = new THREE.Mesh(portGeometry, portMaterial);
-            port.position.set(portX, portY, panelDepth/2 + 0.08);
-            port.userData = {
-                type: 'patchPort',
-                portNum: portNum,
-                isConnected: isConnected,
-                label: portNum <= 2 ? `DD1-${portNum}` : `Port ${portNum}`
-            };
-            panelGroup.add(port);
-            patchPortMeshes.push(port);
+        // Port-Gehäuse
+        const portGeometry = new THREE.BoxGeometry(portWidth, portHeight, 0.12);
+        const portMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1a1a1a,
+            roughness: 0.7
+        });
+        const port = new THREE.Mesh(portGeometry, portMaterial);
+        port.position.set(portX, 0, panelDepth/2 + 0.07);
+        port.userData = {
+            type: 'patchPort',
+            portNum: portNum,
+            isConnected: false,
+            targetSwitch: portNum <= 12 ? 1 : 2,  // Ports 1-12 → Switch 1, 13-24 → Switch 2
+            label: `Port ${portNum}`
+        };
+        panelGroup.add(port);
+        patchPortMeshes.push(port);
 
-            // Port-Label (nur für die wichtigen Ports)
-            if (portNum <= 3) {
-                createSmallPortLabel(panelGroup, portNum <= 2 ? `DD1-${portNum}` : `${portNum}`, portX, panelHeight/2 - 0.08, panelDepth/2 + 0.06);
-            }
+        // Port-Nummer Labels (jeder 4. Port und erster/letzter)
+        if (portNum === 1 || portNum === 12 || portNum === 13 || portNum === 24 || portNum % 6 === 0) {
+            createSmallPortLabel(panelGroup, `${portNum}`, portX, panelHeight/2 - 0.05, panelDepth/2 + 0.06);
         }
     }
 
+    // Bereichsmarkierungen
+    createLevel3Label(panelGroup, '← Ports 1-12: Switch Büro 1', -2.5, -0.6, 0.3);
+    createLevel3Label(panelGroup, 'Ports 13-24: Switch Büro 2 →', 2.5, -0.6, 0.3);
+
     // Patchpanel Label
-    createLevel3Label(panelGroup, 'PATCHPANEL - 24 Port', 0, panelHeight/2 + 0.4, 0.3);
+    createLevel3Label(panelGroup, 'PATCHPANEL - 24 Port Cat.6', 0, panelHeight/2 + 0.5, 0.3);
 
     parent.add(panelGroup);
     patchpanelMesh = panelGroup;
-
-    // Referenz-Patchkabel für Port 1
-    createReferencePatchCable(panelGroup);
 }
 
-function createSwitch(parent, x, y, z) {
+function createSwitch16(parent, x, y, z, switchNum, switchName) {
     const switchGroup = new THREE.Group();
     switchGroup.position.set(x, y, z);
 
-    // Switch-Gehäuse (1 HE)
-    const switchWidth = 5.5;
-    const switchHeight = 0.8;
+    // Switch-Gehäuse (1 HE) - für 16 Ports
+    const switchWidth = 7;
+    const switchHeight = 0.7;
     const switchDepth = 0.5;
+
+    // Unterschiedliche Farben für die Switches
+    const switchColors = {
+        1: 0x1e3a5f,  // Dunkelblau für Switch 1
+        2: 0x3f1e5f   // Dunkelviolett für Switch 2
+    };
 
     const switchGeometry = new THREE.BoxGeometry(switchWidth, switchHeight, switchDepth);
     const switchMaterial = new THREE.MeshStandardMaterial({
-        color: 0x1e3a5f,  // Dunkelblau (typisch für Netzwerk-Switches)
+        color: switchColors[switchNum],
         roughness: 0.5,
         metalness: 0.3
     });
@@ -2863,134 +2872,108 @@ function createSwitch(parent, x, y, z) {
     switchGroup.add(switchBody);
 
     // Status-LEDs (links)
-    const ledGeometry = new THREE.CircleGeometry(0.04, 16);
+    const ledGeometry = new THREE.CircleGeometry(0.03, 16);
     const ledColors = [0x22ff22, 0x22ff22, 0xffaa00]; // Power, Link, Activity
     ledColors.forEach((color, i) => {
         const ledMaterial = new THREE.MeshBasicMaterial({ color: color });
         const led = new THREE.Mesh(ledGeometry, ledMaterial);
-        led.position.set(-switchWidth/2 + 0.2 + i * 0.15, switchHeight/2 - 0.15, switchDepth/2 + 0.01);
+        led.position.set(-switchWidth/2 + 0.15 + i * 0.12, switchHeight/2 - 0.12, switchDepth/2 + 0.01);
         switchGroup.add(led);
     });
 
-    // 24 RJ45 Ports
-    const portsPerRow = 12;
-    const portWidth = 0.35;
-    const portHeight = 0.25;
-    const startX = -switchWidth/2 + 0.5;
-    const spacing = (switchWidth - 1.0) / (portsPerRow - 1);
+    // 16 RJ45 Ports in einer Reihe
+    const numPorts = 16;
+    const portWidth = 0.3;
+    const portHeight = 0.2;
+    const startX = -switchWidth/2 + 0.6;
+    const spacing = (switchWidth - 1.2) / (numPorts - 1);
 
-    for (let row = 0; row < 2; row++) {
-        for (let col = 0; col < portsPerRow; col++) {
-            const portNum = row * portsPerRow + col + 1;
-            const portX = startX + col * spacing;
-            const portY = row === 0 ? 0.1 : -0.2;
+    const portMeshArray = switchNum === 1 ? switch1PortMeshes : switch2PortMeshes;
 
-            // Port-Gehäuse
-            const portGeometry = new THREE.BoxGeometry(portWidth, portHeight, 0.15);
-            const isConnected = portNum === 1; // Port 1 als Referenz bereits verbunden
-            const portMaterial = new THREE.MeshStandardMaterial({
-                color: isConnected ? 0x22aa22 : 0x1a1a1a,
-                roughness: 0.7
-            });
-            const port = new THREE.Mesh(portGeometry, portMaterial);
-            port.position.set(portX, portY, switchDepth/2 + 0.08);
-            port.userData = {
-                type: 'switchPort',
-                portNum: portNum,
-                isConnected: isConnected
-            };
-            switchGroup.add(port);
-            switchPortMeshes.push(port);
+    for (let i = 0; i < numPorts; i++) {
+        const portNum = i + 1;
+        const portX = startX + i * spacing;
 
-            // Port-Nummer Label (für erste paar Ports)
-            if (portNum <= 3) {
-                createSmallPortLabel(switchGroup, `${portNum}`, portX, portY + 0.2, switchDepth/2 + 0.06);
-            }
+        // Port-Gehäuse
+        const portGeometry = new THREE.BoxGeometry(portWidth, portHeight, 0.12);
+        const portMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1a1a1a,
+            roughness: 0.7
+        });
+        const port = new THREE.Mesh(portGeometry, portMaterial);
+        port.position.set(portX, -0.05, switchDepth/2 + 0.07);
+        port.userData = {
+            type: 'switchPort',
+            portNum: portNum,
+            switchNum: switchNum,
+            isConnected: false
+        };
+        switchGroup.add(port);
+        portMeshArray.push(port);
+
+        // Port-Nummer Labels (jeder 4. Port)
+        if (portNum === 1 || portNum === 8 || portNum === 16 || portNum % 4 === 0) {
+            createSmallPortLabel(switchGroup, `${portNum}`, portX, 0.2, switchDepth/2 + 0.06);
         }
     }
 
     // Switch-Label
-    createLevel3Label(switchGroup, 'SWITCH - 24 Port GbE', 0, switchHeight/2 + 0.4, 0.3);
-
-    // Link/Activity LEDs unter den Ports (für verbundene Ports)
-    const linkLedGeometry = new THREE.CircleGeometry(0.03, 8);
-    const linkLedMaterial = new THREE.MeshBasicMaterial({ color: 0x22ff22 });
-    const linkLed = new THREE.Mesh(linkLedGeometry, linkLedMaterial);
-    linkLed.position.set(startX, -0.35, switchDepth/2 + 0.01);
-    switchGroup.add(linkLed);
+    createLevel3Label(switchGroup, switchName, 0, switchHeight/2 + 0.4, 0.3);
 
     parent.add(switchGroup);
-    switchMesh = switchGroup;
+    
+    if (switchNum === 1) {
+        switch1Mesh = switchGroup;
+    } else {
+        switch2Mesh = switchGroup;
+    }
 }
 
-function createReferencePatchCable(patchpanelGroup) {
-    // Referenz-Patchkabel von Patchpanel Port 1 zum Switch Port 1
-    // Patchpanel ist bei y=3.5, Switch bei y=1.5
-    const startY = 0;  // Relativ zum Patchpanel
-    const endY = -2;   // Runter zum Switch
+function createWallCables() {
+    // 24 Verlegekabel vom Kabelkanal zum Patchpanel
+    // Kabel 1 (DD1-1) ist orange, die anderen 23 sind gelb
     
-    const cableColor = 0x4169E1; // Blaues Patchkabel
+    const orangeColor = 0xFF8C00;  // Das Kabel aus Level 1 & 2
+    const yellowColor = 0xFFD700;  // Die anderen 23 Kabel
     
-    const curve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(-2.35, startY, 0.35),      // Patchpanel Port 1
-        new THREE.Vector3(-2.35, startY - 0.3, 0.6), // Kurz raus
-        new THREE.Vector3(-2.5, startY - 1.0, 0.7),  // Bogen
-        new THREE.Vector3(-2.35, endY + 0.3, 0.6),   // Zum Switch
-        new THREE.Vector3(-2.35, endY, 0.35)         // Switch Port 1
-    ]);
+    for (let i = 0; i < 24; i++) {
+        const cableColor = i === 0 ? orangeColor : yellowColor;
+        const portNum = i + 1;
+        
+        // Berechne die Zielposition am Patchpanel
+        const panelWidth = 9;
+        const startX = -panelWidth/2 + 0.45;
+        const spacing = (panelWidth - 0.9) / 23;
+        const targetX = startX + i * spacing;
+        
+        // Kabel verläuft vom Kabelkanal zum Patchpanel
+        // Gestaffelte Austrittspunkte aus dem Kabelkanal
+        const kanalExitY = 4 + (i % 4) * 0.15;
+        const kanalExitX = -12 + (i * 0.1);
+        
+        const curve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(kanalExitX, kanalExitY, -4.3),           // Kabelkanal-Auslass
+            new THREE.Vector3(kanalExitX, kanalExitY, -3),             // Raus aus Wand
+            new THREE.Vector3(-8 + i * 0.2, 5 + (i % 3) * 0.2, -1),    // Bogen nach oben
+            new THREE.Vector3(targetX, 5, 0.5),                         // Über dem Rack
+            new THREE.Vector3(targetX, 3.8, 1.2),                       // Hinter Patchpanel
+            new THREE.Vector3(targetX, 3, 1.0)                          // Zum Patchpanel (Rückseite)
+        ]);
 
-    const tubeGeometry = new THREE.TubeGeometry(curve, 32, 0.04, 8, false);
-    const cableMaterial = new THREE.MeshStandardMaterial({
-        color: cableColor,
-        roughness: 0.6
-    });
-    const cable = new THREE.Mesh(tubeGeometry, cableMaterial);
-    cable.castShadow = true;
-    patchpanelGroup.add(cable);
+        const tubeGeometry = new THREE.TubeGeometry(curve, 48, 0.04, 8, false);
+        const cableMaterial = new THREE.MeshStandardMaterial({
+            color: cableColor,
+            roughness: 0.5
+        });
+        const cable = new THREE.Mesh(tubeGeometry, cableMaterial);
+        cable.castShadow = true;
+        cable.userData = { portNum: portNum, isOrange: i === 0 };
+        scene.add(cable);
+        wallCableMeshes.push(cable);
+    }
 
-    // RJ45 Stecker am Anfang (Patchpanel-Seite)
-    createRJ45Plug(patchpanelGroup, -2.35, startY, 0.45, cableColor);
-    // RJ45 Stecker am Ende (Switch-Seite)
-    createRJ45Plug(patchpanelGroup, -2.35, endY, 0.45, cableColor);
-}
-
-function createRJ45Plug(parent, x, y, z, color) {
-    const plugGeometry = new THREE.BoxGeometry(0.15, 0.12, 0.2);
-    const plugMaterial = new THREE.MeshStandardMaterial({
-        color: color,
-        roughness: 0.4
-    });
-    const plug = new THREE.Mesh(plugGeometry, plugMaterial);
-    plug.position.set(x, y, z);
-    parent.add(plug);
-}
-
-function createWallToPatchpanelCable() {
-    // Orangenes Verlegekabel von Kabelkanal zum Patchpanel
-    const cableColor = 0xFF8C00;
-    
-    const curve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(-10, 3, -4.3),    // Kabelkanal-Auslass
-        new THREE.Vector3(-10, 3, -3),      // Raus aus Wand
-        new THREE.Vector3(-8, 3.5, -1),     // Bogen nach oben
-        new THREE.Vector3(-5, 4, 0),        // Entlang der Decke
-        new THREE.Vector3(-2, 4, 0.5),      // Runter zum Rack
-        new THREE.Vector3(-2, 3.8, 1.2),    // Hinter Patchpanel
-        new THREE.Vector3(-1.5, 3.5, 1.0)   // Zum Patchpanel (Rückseite)
-    ]);
-
-    const tubeGeometry = new THREE.TubeGeometry(curve, 64, 0.08, 8, false);
-    const cableMaterial = new THREE.MeshStandardMaterial({
-        color: cableColor,
-        roughness: 0.5
-    });
-    const cable = new THREE.Mesh(tubeGeometry, cableMaterial);
-    cable.castShadow = true;
-    scene.add(cable);
-    wallCableMesh = cable;
-
-    // Label für das Verlegekabel
-    createLevel3Label(scene, 'Verlegekabel\nvon Netzwerkdose', -6, 4.5, 0);
+    // Labels für die Kabel
+    createLevel3Label(scene, 'Orange = DD1-1\n(aus Level 1 & 2)', -14, 6, 0);
 }
 
 function createSmallPortLabel(parent, text, x, y, z) {
@@ -3000,7 +2983,7 @@ function createSmallPortLabel(parent, text, x, y, z) {
     canvas.height = 32;
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 18px Arial';
+    ctx.font = 'bold 16px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, 32, 16);
@@ -3009,7 +2992,7 @@ function createSmallPortLabel(parent, text, x, y, z) {
     const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
     const sprite = new THREE.Sprite(spriteMaterial);
     sprite.position.set(x, y, z);
-    sprite.scale.set(0.4, 0.2, 1);
+    sprite.scale.set(0.3, 0.15, 1);
     parent.add(sprite);
 }
 
@@ -3023,13 +3006,13 @@ function createLevel3Label(parent, text, x, y, z) {
     ctx.fillRect(0, 0, 256, 64);
     
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 20px Arial';
+    ctx.font = 'bold 18px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     
     // Mehrzeiligen Text unterstützen
     const lines = text.split('\n');
-    const lineHeight = 22;
+    const lineHeight = 20;
     const startY = 32 - (lines.length - 1) * lineHeight / 2;
     lines.forEach((line, i) => {
         ctx.fillText(line, 128, startY + i * lineHeight);
@@ -3042,7 +3025,7 @@ function createLevel3Label(parent, text, x, y, z) {
     });
     const sprite = new THREE.Sprite(spriteMaterial);
     sprite.position.set(x, y, z);
-    sprite.scale.set(2.5, 0.6, 1);
+    sprite.scale.set(2.2, 0.55, 1);
     sprite.renderOrder = 100;
     parent.add(sprite);
 }
@@ -3055,7 +3038,19 @@ function updateLevel3UI() {
     const instructionsDiv = document.createElement('div');
     instructionsDiv.className = 'level3-instructions';
     instructionsDiv.innerHTML = `
-        <p class="panel-description">Verbinde die Patchpanel-Ports mit dem Switch:</p>
+        <p class="panel-description"><strong>Verbinde alle 24 Patchpanel-Ports:</strong></p>
+        <div class="switch-assignment">
+            <div class="assignment-row">
+                <span class="port-range">Ports 1-12</span>
+                <span class="arrow">→</span>
+                <span class="switch-name switch1">Switch Büro 1</span>
+            </div>
+            <div class="assignment-row">
+                <span class="port-range">Ports 13-24</span>
+                <span class="arrow">→</span>
+                <span class="switch-name switch2">Switch Büro 2</span>
+            </div>
+        </div>
         <div class="connection-guide">
             <div class="port-indicator" id="selected-patch">
                 <span class="port-label">Patchpanel:</span>
@@ -3067,12 +3062,12 @@ function updateLevel3UI() {
                 <span class="port-value">-</span>
             </div>
         </div>
-        <p class="hint-text">💡 Klicke auf DD1-1 oder DD1-2 am Patchpanel, dann auf einen Switch-Port</p>
+        <p class="hint-text">💡 Klicke auf einen Patchpanel-Port, dann auf den passenden Switch-Port</p>
     `;
     cableCoresContainer.appendChild(instructionsDiv);
 
     // Panel-Titel anpassen
-    document.querySelector('#cable-panel h3').textContent = '🔗 Verbindungen';
+    document.querySelector('#cable-panel h3').textContent = '🔗 Patch-Verbindungen';
     
     // Socket-Status für Level 3 anpassen
     const socketStatus = document.getElementById('socket-status');
@@ -3085,9 +3080,13 @@ function updateLevel3UI() {
             <span>🔗 Verbindungen:</span>
             <span id="level3-connections">0/${gameState.level3.requiredConnections}</span>
         </div>
-        <div class="socket-status-item reference">
-            <span>✅ Referenz:</span>
-            <span>Port 1 ↔ Port 1</span>
+        <div class="socket-status-item switch1-status">
+            <span>📦 Switch Büro 1:</span>
+            <span id="switch1-connections">0/12</span>
+        </div>
+        <div class="socket-status-item switch2-status">
+            <span>📦 Switch Büro 2:</span>
+            <span id="switch2-connections">0/12</span>
         </div>
     `;
 
@@ -3114,7 +3113,7 @@ function formatTime(seconds) {
 
 function handleLevel3Click() {
     // Prüfen ob auf Patchpanel- oder Switch-Port geklickt wurde
-    const allPorts = [...patchPortMeshes, ...switchPortMeshes];
+    const allPorts = [...patchPortMeshes, ...switch1PortMeshes, ...switch2PortMeshes];
     const intersects = raycaster.intersectObjects(allPorts);
 
     if (intersects.length > 0) {
@@ -3130,17 +3129,6 @@ function handleLevel3Click() {
 }
 
 function handlePatchPortClick(port, portData) {
-    // Nur DD1-1 (Port 2) und DD1-2 (Port 3) sind verbindbar (Port 1 ist Referenz)
-    if (portData.portNum === 1) {
-        showFeedback('Port 1 ist bereits als Referenz verbunden!', 'info');
-        return;
-    }
-    
-    if (portData.portNum > 3) {
-        showFeedback('Nur DD1-1 und DD1-2 müssen verbunden werden!', 'warning');
-        return;
-    }
-
     if (portData.isConnected) {
         showFeedback('Dieser Port ist bereits verbunden!', 'warning');
         return;
@@ -3158,7 +3146,9 @@ function handlePatchPortClick(port, portData) {
 
     // UI aktualisieren
     updateLevel3PortSelection();
-    showFeedback(`${portData.label} ausgewählt - wähle jetzt einen Switch-Port`, 'info');
+    
+    const targetSwitchName = portData.targetSwitch === 1 ? 'Switch Büro 1' : 'Switch Büro 2';
+    showFeedback(`Port ${portData.portNum} ausgewählt → ${targetSwitchName}`, 'info');
 }
 
 function handleSwitchPortClick(port, portData) {
@@ -3167,13 +3157,17 @@ function handleSwitchPortClick(port, portData) {
         return;
     }
 
-    if (portData.portNum === 1) {
-        showFeedback('Switch-Port 1 ist bereits belegt!', 'warning');
+    if (portData.isConnected) {
+        showFeedback('Dieser Switch-Port ist bereits verbunden!', 'warning');
         return;
     }
 
-    if (portData.isConnected) {
-        showFeedback('Dieser Switch-Port ist bereits verbunden!', 'warning');
+    const patchPortData = gameState.level3.selectedPatchPort.userData;
+    
+    // Prüfen ob richtiger Switch gewählt wurde
+    if (patchPortData.targetSwitch !== portData.switchNum) {
+        const correctSwitch = patchPortData.targetSwitch === 1 ? 'Switch Büro 1' : 'Switch Büro 2';
+        showFeedback(`Falscher Switch! Port ${patchPortData.portNum} gehört zu ${correctSwitch}`, 'warning');
         return;
     }
 
@@ -3191,31 +3185,39 @@ function createPatchCableConnection(patchPort, switchPort) {
     patchPort.getWorldPosition(patchWorldPos);
     switchPort.getWorldPosition(switchWorldPos);
 
-    // Zufällige Kabelfarbe
-    const cableColors = [0xFF0000, 0x00FF00, 0xFFFF00, 0xFF00FF, 0x00FFFF];
-    const randomColor = cableColors[Math.floor(Math.random() * cableColors.length)];
+    // Kabelfarben basierend auf Port-Nummer
+    const cableColors = [
+        0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 
+        0xFF00FF, 0x00FFFF, 0xFFA500, 0x800080,
+        0x008000, 0x000080, 0x808000, 0x800000
+    ];
+    const colorIndex = (patchData.portNum - 1) % cableColors.length;
+    const cableColor = cableColors[colorIndex];
 
+    // Kurve für Patchkabel
+    const midY = (patchWorldPos.y + switchWorldPos.y) / 2;
     const curve = new THREE.CatmullRomCurve3([
         patchWorldPos.clone().add(new THREE.Vector3(0, 0, 0.1)),
-        patchWorldPos.clone().add(new THREE.Vector3(0, -0.3, 0.4)),
+        patchWorldPos.clone().add(new THREE.Vector3(0, -0.2, 0.5)),
         new THREE.Vector3(
-            (patchWorldPos.x + switchWorldPos.x) / 2 + (Math.random() - 0.5) * 0.5,
-            (patchWorldPos.y + switchWorldPos.y) / 2,
-            Math.max(patchWorldPos.z, switchWorldPos.z) + 0.5
+            (patchWorldPos.x + switchWorldPos.x) / 2,
+            midY,
+            Math.max(patchWorldPos.z, switchWorldPos.z) + 0.6
         ),
-        switchWorldPos.clone().add(new THREE.Vector3(0, 0.3, 0.4)),
+        switchWorldPos.clone().add(new THREE.Vector3(0, 0.2, 0.5)),
         switchWorldPos.clone().add(new THREE.Vector3(0, 0, 0.1))
     ]);
 
-    const tubeGeometry = new THREE.TubeGeometry(curve, 32, 0.04, 8, false);
+    const tubeGeometry = new THREE.TubeGeometry(curve, 32, 0.035, 8, false);
     const cableMaterial = new THREE.MeshStandardMaterial({
-        color: randomColor,
+        color: cableColor,
         roughness: 0.6
     });
     const cable = new THREE.Mesh(tubeGeometry, cableMaterial);
     cable.castShadow = true;
     cable.userData = {
         patchPortNum: patchData.portNum,
+        switchNum: switchData.switchNum,
         switchPortNum: switchData.portNum
     };
     scene.add(cable);
@@ -3232,6 +3234,7 @@ function createPatchCableConnection(patchPort, switchPort) {
     // Verbindung speichern
     gameState.level3.connections.push({
         patchPort: patchData.portNum,
+        switchNum: switchData.switchNum,
         switchPort: switchData.portNum,
         cable: cable
     });
@@ -3246,13 +3249,13 @@ function createPatchCableConnection(patchPort, switchPort) {
 
     // Auswahl zurücksetzen
     gameState.level3.selectedPatchPort = null;
-    gameState.level3.selectedSwitchPort = null;
 
     // UI aktualisieren
     updateLevel3PortSelection();
     updateLevel3Progress();
 
-    showFeedback(`Verbindung: ${patchData.label} ↔ Switch Port ${switchData.portNum}`, 'success');
+    const switchName = switchData.switchNum === 1 ? 'Büro 1' : 'Büro 2';
+    showFeedback(`Verbunden: Port ${patchData.portNum} ↔ Switch ${switchName} Port ${switchData.portNum}`, 'success');
 }
 
 function updateLevel3PortSelection() {
@@ -3261,7 +3264,8 @@ function updateLevel3PortSelection() {
 
     if (patchIndicator) {
         if (gameState.level3.selectedPatchPort) {
-            patchIndicator.textContent = gameState.level3.selectedPatchPort.userData.label;
+            const portData = gameState.level3.selectedPatchPort.userData;
+            patchIndicator.textContent = `Port ${portData.portNum}`;
             patchIndicator.classList.add('selected');
         } else {
             patchIndicator.textContent = '-';
@@ -3270,33 +3274,52 @@ function updateLevel3PortSelection() {
     }
 
     if (switchIndicator) {
-        if (gameState.level3.selectedSwitchPort) {
-            switchIndicator.textContent = `Port ${gameState.level3.selectedSwitchPort.userData.portNum}`;
-            switchIndicator.classList.add('selected');
-        } else {
-            switchIndicator.textContent = '-';
-            switchIndicator.classList.remove('selected');
-        }
+        switchIndicator.textContent = '-';
+        switchIndicator.classList.remove('selected');
     }
 }
 
 function updateLevel3Progress() {
+    const connections = gameState.level3.connections;
+    const totalConnections = connections.length;
+    
+    // Zähle Verbindungen pro Switch
+    const switch1Count = connections.filter(c => c.switchNum === 1).length;
+    const switch2Count = connections.filter(c => c.switchNum === 2).length;
+
+    // Update UI
     const connectionsEl = document.getElementById('level3-connections');
     if (connectionsEl) {
-        connectionsEl.textContent = `${gameState.level3.connections.length}/${gameState.level3.requiredConnections}`;
+        connectionsEl.textContent = `${totalConnections}/${gameState.level3.requiredConnections}`;
+    }
+
+    const switch1El = document.getElementById('switch1-connections');
+    if (switch1El) {
+        switch1El.textContent = `${switch1Count}/12`;
+        if (switch1Count === 12) {
+            switch1El.parentElement.classList.add('completed');
+        }
+    }
+
+    const switch2El = document.getElementById('switch2-connections');
+    if (switch2El) {
+        switch2El.textContent = `${switch2Count}/12`;
+        if (switch2Count === 12) {
+            switch2El.parentElement.classList.add('completed');
+        }
     }
 
     // Undo-Button aktivieren wenn Verbindungen vorhanden
     const undoBtn = document.getElementById('undo-btn');
     if (undoBtn) {
-        undoBtn.disabled = gameState.level3.connections.length === 0;
+        undoBtn.disabled = totalConnections === 0;
     }
 
     // Check-Button aktivieren wenn alle Verbindungen hergestellt
     const checkBtn = document.getElementById('check-btn');
     if (checkBtn) {
-        checkBtn.disabled = gameState.level3.connections.length < gameState.level3.requiredConnections;
-        if (gameState.level3.connections.length >= gameState.level3.requiredConnections) {
+        checkBtn.disabled = totalConnections < gameState.level3.requiredConnections;
+        if (totalConnections >= gameState.level3.requiredConnections) {
             checkBtn.classList.add('pulse');
         }
     }
@@ -3327,10 +3350,10 @@ function updateLevel3TimerDisplay() {
         timerEl.textContent = formatTime(gameState.level3.timeRemaining);
         
         // Warnung wenn wenig Zeit
-        if (gameState.level3.timeRemaining <= 30) {
+        if (gameState.level3.timeRemaining <= 60) {
             timerEl.classList.add('warning');
         }
-        if (gameState.level3.timeRemaining <= 10) {
+        if (gameState.level3.timeRemaining <= 30) {
             timerEl.classList.remove('warning');
             timerEl.classList.add('critical');
         }
@@ -3350,26 +3373,38 @@ function checkLevel3Solution() {
     const connections = gameState.level3.connections;
     const required = gameState.level3.requiredConnections;
     
-    let correct = 0;
-    let errors = [];
+    let correctSwitch1 = 0;
+    let correctSwitch2 = 0;
+    let wrongConnections = [];
 
-    // Prüfen: DD1-1 (Port 2) und DD1-2 (Port 3) müssen verbunden sein
-    const port2Connected = connections.some(c => c.patchPort === 2);
-    const port3Connected = connections.some(c => c.patchPort === 3);
+    // Prüfen: Ports 1-12 müssen mit Switch 1 verbunden sein
+    // Ports 13-24 müssen mit Switch 2 verbunden sein
+    connections.forEach(conn => {
+        if (conn.patchPort <= 12 && conn.switchNum === 1) {
+            correctSwitch1++;
+        } else if (conn.patchPort > 12 && conn.switchNum === 2) {
+            correctSwitch2++;
+        } else {
+            wrongConnections.push(`Port ${conn.patchPort} → falscher Switch`);
+        }
+    });
 
-    if (port2Connected) correct++;
-    else errors.push('DD1-1 (Port 2) ist nicht verbunden');
-
-    if (port3Connected) correct++;
-    else errors.push('DD1-2 (Port 3) ist nicht verbunden');
-
-    const success = correct >= required;
+    const correct = correctSwitch1 + correctSwitch2;
+    const success = correct >= required && wrongConnections.length === 0;
     const timeUsed = LEVELS[3].timeLimit - gameState.level3.timeRemaining;
 
-    showLevel3Result(success, correct, required, errors, timeUsed);
+    // Fehlende Ports ermitteln
+    const missingPorts = [];
+    for (let i = 1; i <= 24; i++) {
+        if (!connections.some(c => c.patchPort === i)) {
+            missingPorts.push(i);
+        }
+    }
+
+    showLevel3Result(success, correct, required, wrongConnections, missingPorts, timeUsed);
 }
 
-function showLevel3Result(success, correct, total, errors, timeUsed) {
+function showLevel3Result(success, correct, total, wrongConnections, missingPorts, timeUsed) {
     const modal = document.getElementById('result-modal');
     const titleEl = document.getElementById('result-title');
     const iconEl = document.getElementById('result-icon');
@@ -3383,7 +3418,7 @@ function showLevel3Result(success, correct, total, errors, timeUsed) {
         iconEl.innerHTML = '✅';
         iconEl.className = 'success-icon';
     } else {
-        titleEl.textContent = '❌ Nicht geschafft';
+        titleEl.textContent = '❌ Nicht ganz geschafft';
         iconEl.innerHTML = '❌';
         iconEl.className = 'error-icon';
     }
@@ -3393,15 +3428,26 @@ function showLevel3Result(success, correct, total, errors, timeUsed) {
 
     if (success) {
         detailsEl.innerHTML = `
-            <p>Alle Patchpanel-Ports sind korrekt mit dem Switch verbunden!</p>
-            <p>Das Netzwerk ist jetzt betriebsbereit. 🌐</p>
+            <p>Alle 24 Patchpanel-Ports sind korrekt mit den Switches verbunden!</p>
+            <p>Das Netzwerk für beide Büros ist jetzt betriebsbereit. 🌐</p>
         `;
     } else {
-        detailsEl.innerHTML = `<p>Einige Verbindungen fehlen oder die Zeit ist abgelaufen.</p>`;
+        let detailHtml = '<p>Es gibt noch Probleme:</p><ul>';
+        if (missingPorts.length > 0) {
+            detailHtml += `<li>Fehlende Verbindungen: Ports ${missingPorts.slice(0, 5).join(', ')}${missingPorts.length > 5 ? '...' : ''}</li>`;
+        }
+        if (wrongConnections.length > 0) {
+            detailHtml += `<li>Falsche Zuordnungen: ${wrongConnections.length}</li>`;
+        }
+        detailHtml += '</ul>';
+        detailsEl.innerHTML = detailHtml;
     }
 
-    if (errors.length > 0) {
-        errorsEl.innerHTML = '<h4>Fehler:</h4><ul>' + errors.map(e => `<li>${e}</li>`).join('') + '</ul>';
+    if (wrongConnections.length > 0) {
+        errorsEl.innerHTML = '<h4>Falsche Zuordnungen:</h4><ul>' + 
+            wrongConnections.slice(0, 5).map(e => `<li>${e}</li>`).join('') + 
+            (wrongConnections.length > 5 ? '<li>...</li>' : '') +
+            '</ul>';
         errorsEl.classList.remove('hidden');
     } else {
         errorsEl.classList.add('hidden');

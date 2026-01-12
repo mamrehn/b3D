@@ -892,3 +892,63 @@ body {
     padding: 0.5rem;
     font-size: 0.85rem;
 }
+
+/* Level 3 Switch Assignment Styles */
+.switch-assignment {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius);
+    padding: 0.75rem;
+    margin: 0.5rem 0;
+}
+
+.assignment-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.4rem 0;
+    font-size: 0.85rem;
+}
+
+.assignment-row:first-child {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.3rem;
+}
+
+.port-range {
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.switch-name {
+    font-weight: bold;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+}
+
+.switch-name.switch1 {
+    background: rgba(30, 58, 95, 0.5);
+    color: #6db3f2;
+}
+
+.switch-name.switch2 {
+    background: rgba(63, 30, 95, 0.5);
+    color: #b86df2;
+}
+
+.switch1-status {
+    border-left: 3px solid #1e3a5f;
+}
+
+.switch2-status {
+    border-left: 3px solid #3f1e5f;
+}
+
+.socket-status-item.completed {
+    background: rgba(34, 197, 94, 0.15);
+}
+
+.socket-status-item.completed span:last-child {
+    color: var(--success-color);
+    font-weight: bold;
+}
