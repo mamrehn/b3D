@@ -134,10 +134,27 @@ function showLevelSelect() {
 function selectLevel(level) {
     currentLevel = level;
     document.getElementById('level-select-modal').classList.add('hidden');
-    
+
+    // Dispose user-placed patch cables from Level 3 before clearing
+    patchCableMeshes.forEach(cable => {
+        if (cable) {
+            cable.geometry.dispose();
+            cable.material.dispose();
+        }
+    });
+
     // Clear existing scene
-    while(scene.children.length > 0) { 
-        scene.remove(scene.children[0]); 
+    while(scene.children.length > 0) {
+        const obj = scene.children[0];
+        scene.remove(obj);
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+            if (Array.isArray(obj.material)) {
+                obj.material.forEach(m => m.dispose());
+            } else {
+                obj.material.dispose();
+            }
+        }
     }
     
     // Reset state
@@ -186,7 +203,7 @@ function resetGameState() {
         selectedPatchPort: null,
         selectedSwitchPort: null,
         connections: [],
-        requiredConnections: 2,
+        requiredConnections: 24,
         timeRemaining: LEVELS[3].timeLimit,
         timerActive: false
     };
@@ -2873,10 +2890,8 @@ function createPatchpanel24(parent, x, y, z) {
         panelGroup.add(port);
         patchPortMeshes.push(port);
 
-        // Port-Nummer Labels (jeder 4. Port und erster/letzter)
-        if (portNum === 1 || portNum === 12 || portNum === 13 || portNum === 24 || portNum % 6 === 0) {
-            createSmallPortLabel(panelGroup, `${portNum}`, portX, panelHeight/2 - 0.05, panelDepth/2 + 0.06);
-        }
+        // Port-Nummer Label für jeden Port
+        createSmallPortLabel(panelGroup, `${portNum}`, portX, panelHeight/2 - 0.05, panelDepth/2 + 0.06);
     }
 
     // Bereichsmarkierungen
@@ -3228,14 +3243,8 @@ function createPatchCableConnection(patchPort, switchPort) {
     patchPort.getWorldPosition(patchWorldPos);
     switchPort.getWorldPosition(switchWorldPos);
 
-    // Kabelfarben basierend auf Port-Nummer
-    const cableColors = [
-        0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 
-        0xFF00FF, 0x00FFFF, 0xFFA500, 0x800080,
-        0x008000, 0x000080, 0x808000, 0x800000
-    ];
-    const colorIndex = (patchData.portNum - 1) % cableColors.length;
-    const cableColor = cableColors[colorIndex];
+    // Einheitliche Kabelfarbe: Hellgrau
+    const cableColor = 0xB0B0B0;
 
     // Kurve für Patchkabel
     const midY = (patchWorldPos.y + switchWorldPos.y) / 2;
