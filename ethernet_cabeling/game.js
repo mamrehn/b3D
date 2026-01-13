@@ -62,6 +62,12 @@ const gameState = {
     },
     helpUsed: 0,
     undoHistory: [],  // Undo-Verlauf für Level 2
+    // Punktestand pro Level für Gesamtstatistik
+    levelScores: {
+        1: { score: 0, time: 0, completed: false },
+        2: { score: 0, time: 0, completed: false },
+        3: { score: 0, time: 0, completed: false }
+    },
     // Level 1 Zustand (Kabelkanal)
     level1: {
         cableSegments: [],      // Kabelsegmente die platziert wurden
@@ -1936,10 +1942,22 @@ function showResult(correct, total, errors, score) {
     const seconds = gameState.elapsedTime % 60;
     timeEl.textContent = `Zeit: ${minutes}:${seconds.toString().padStart(2, '0')} | Richtig: ${correct}/${total}`;
 
+    // Level 2 Score speichern (nur bei Erfolg)
+    if (errors.length === 0) {
+        gameState.levelScores[2] = {
+            score: score,
+            time: gameState.elapsedTime,
+            completed: true
+        };
+    }
+
     detailsEl.innerHTML = `
         <p>${message}</p>
         ${gameState.helpUsed > 0 ? `<p style="color: var(--warning-color);">Hilfe Stufe ${gameState.helpUsed} verwendet (-${gameState.helpUsed * 5} Punkte)</p>` : ''}
     `;
+
+    // Retry-Button konfigurieren
+    const retryBtn = document.getElementById('result-retry');
 
     if (errors.length > 0) {
         errorsEl.classList.remove('hidden');
@@ -1951,10 +1969,28 @@ function showResult(correct, total, errors, score) {
                 `).join('')}
             </ul>
         `;
+        // Bei Fehlern: Neustart-Button
+        retryBtn.textContent = '🔄 Nochmal versuchen';
+        retryBtn.onclick = () => {
+            modal.classList.add('hidden');
+            resetGame();
+        };
     } else {
         errorsEl.classList.add('hidden');
         // Bei korrekter Lösung: Dose drehen (RJ45 zum Deckel)
         rotateSocketToFront();
+
+        // Button zu Level 3 ändern
+        detailsEl.innerHTML += `
+            <p style="color: var(--primary-color); font-weight: bold;">
+                ➡️ Weiter zu Level 3: RJ45-Stecker!
+            </p>
+        `;
+        retryBtn.textContent = '➡️ Level 3 starten';
+        retryBtn.onclick = () => {
+            modal.classList.add('hidden');
+            selectLevel(3);
+        };
     }
 
     modal.classList.remove('hidden');
@@ -2570,6 +2606,13 @@ function showLevel1Result(score) {
     const timeEl = document.getElementById('result-time');
     const detailsEl = document.getElementById('result-details');
     const errorsEl = document.getElementById('result-errors');
+
+    // Level 1 Score speichern
+    gameState.levelScores[1] = {
+        score: score,
+        time: gameState.elapsedTime,
+        completed: true
+    };
 
     iconEl.textContent = '🏆';
     scoreEl.innerHTML = `<span class="score-perfect">${score} Punkte</span>`;
@@ -3412,10 +3455,21 @@ function showLevel3Result(success, correct, total, wrongConnections, missingPort
     const timeEl = document.getElementById('result-time');
     const detailsEl = document.getElementById('result-details');
     const errorsEl = document.getElementById('result-errors');
+    const retryBtn = document.getElementById('result-retry');
+
+    // Level 3 Score berechnen und speichern
+    const level3Score = success ? Math.round((correct / total) * 100) : 0;
+    if (success) {
+        gameState.levelScores[3] = {
+            score: level3Score,
+            time: timeUsed,
+            completed: true
+        };
+    }
 
     if (success) {
-        titleEl.textContent = '🎉 Level 3 geschafft!';
-        iconEl.innerHTML = '✅';
+        titleEl.textContent = '🎉 Alle Level geschafft!';
+        iconEl.innerHTML = '🏆';
         iconEl.className = 'success-icon';
     } else {
         titleEl.textContent = '❌ Nicht ganz geschafft';
@@ -3427,10 +3481,63 @@ function showLevel3Result(success, correct, total, wrongConnections, missingPort
     timeEl.innerHTML = `⏱️ Zeit: ${formatTime(timeUsed)} / ${formatTime(LEVELS[3].timeLimit)}`;
 
     if (success) {
+        // Gesamtstatistik berechnen
+        const totalScore = gameState.levelScores[1].score +
+                          gameState.levelScores[2].score +
+                          gameState.levelScores[3].score;
+        const totalTime = gameState.levelScores[1].time +
+                         gameState.levelScores[2].time +
+                         gameState.levelScores[3].time;
+
         detailsEl.innerHTML = `
             <p>Alle 24 Patchpanel-Ports sind korrekt mit den Switches verbunden!</p>
             <p>Das Netzwerk für beide Büros ist jetzt betriebsbereit. 🌐</p>
+            <hr style="margin: 15px 0; border-color: var(--border-color);">
+            <h3 style="margin-bottom: 10px;">📊 Gesamtstatistik</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <th style="text-align: left; padding: 5px;">Level</th>
+                    <th style="text-align: center; padding: 5px;">Punkte</th>
+                    <th style="text-align: center; padding: 5px;">Zeit</th>
+                </tr>
+                <tr>
+                    <td style="padding: 5px;">1. Kabelkanal</td>
+                    <td style="text-align: center; padding: 5px;">${gameState.levelScores[1].score}</td>
+                    <td style="text-align: center; padding: 5px;">${formatTime(gameState.levelScores[1].time)}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 5px;">2. Netzwerkdose</td>
+                    <td style="text-align: center; padding: 5px;">${gameState.levelScores[2].score}</td>
+                    <td style="text-align: center; padding: 5px;">${formatTime(gameState.levelScores[2].time)}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 5px;">3. Patchpanel</td>
+                    <td style="text-align: center; padding: 5px;">${gameState.levelScores[3].score}</td>
+                    <td style="text-align: center; padding: 5px;">${formatTime(gameState.levelScores[3].time)}</td>
+                </tr>
+                <tr style="border-top: 2px solid var(--primary-color); font-weight: bold;">
+                    <td style="padding: 5px;">Gesamt</td>
+                    <td style="text-align: center; padding: 5px; color: var(--primary-color);">${totalScore}</td>
+                    <td style="text-align: center; padding: 5px;">${formatTime(totalTime)}</td>
+                </tr>
+            </table>
+            <p style="text-align: center; font-size: 1.2em; color: var(--success-color);">
+                🎓 Herzlichen Glückwunsch! Du hast alle Aufgaben gemeistert!
+            </p>
         `;
+
+        // Button zum Neustart aller Level
+        retryBtn.textContent = '🔄 Alle Level wiederholen';
+        retryBtn.onclick = () => {
+            modal.classList.add('hidden');
+            // Alle Scores zurücksetzen
+            gameState.levelScores = {
+                1: { score: 0, time: 0, completed: false },
+                2: { score: 0, time: 0, completed: false },
+                3: { score: 0, time: 0, completed: false }
+            };
+            selectLevel(1);
+        };
     } else {
         let detailHtml = '<p>Es gibt noch Probleme:</p><ul>';
         if (missingPorts.length > 0) {
@@ -3441,11 +3548,18 @@ function showLevel3Result(success, correct, total, wrongConnections, missingPort
         }
         detailHtml += '</ul>';
         detailsEl.innerHTML = detailHtml;
+
+        // Button zum Wiederholen von Level 3
+        retryBtn.textContent = '🔄 Nochmal versuchen';
+        retryBtn.onclick = () => {
+            modal.classList.add('hidden');
+            selectLevel(3);
+        };
     }
 
     if (wrongConnections.length > 0) {
-        errorsEl.innerHTML = '<h4>Falsche Zuordnungen:</h4><ul>' + 
-            wrongConnections.slice(0, 5).map(e => `<li>${e}</li>`).join('') + 
+        errorsEl.innerHTML = '<h4>Falsche Zuordnungen:</h4><ul>' +
+            wrongConnections.slice(0, 5).map(e => `<li>${e}</li>`).join('') +
             (wrongConnections.length > 5 ? '<li>...</li>' : '') +
             '</ul>';
         errorsEl.classList.remove('hidden');
