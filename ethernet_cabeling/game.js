@@ -114,6 +114,36 @@ let patchCableMeshes = [];          // Verlegte Patchkabel
 let wallCableMeshes = [];           // Kabel von der Wand zum Patchpanel (24 Stück)
 
 // ============================================
+// Hilfsfunktionen
+// ============================================
+
+function disposeObject(obj) {
+    if (!obj) return;
+    obj.traverse(child => {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+            if (Array.isArray(child.material)) {
+                child.material.forEach(m => {
+                    if (m.map) m.map.dispose();
+                    m.dispose();
+                });
+            } else {
+                if (child.material.map) child.material.map.dispose();
+                child.material.dispose();
+            }
+        }
+    });
+}
+
+function clearScene() {
+    while (scene.children.length > 0) {
+        const obj = scene.children[0];
+        scene.remove(obj);
+        disposeObject(obj);
+    }
+}
+
+// ============================================
 // Initialisierung
 // ============================================
 
@@ -135,30 +165,15 @@ function selectLevel(level) {
     currentLevel = level;
     document.getElementById('level-select-modal').classList.add('hidden');
 
-    // Dispose user-placed patch cables from Level 3 before clearing
-    patchCableMeshes.forEach(cable => {
-        if (cable) {
-            cable.geometry.dispose();
-            cable.material.dispose();
-        }
-    });
+    // Stop any running timer from previous level
+    stopTimer();
 
-    // Clear existing scene
-    while(scene.children.length > 0) {
-        const obj = scene.children[0];
-        scene.remove(obj);
-        if (obj.geometry) obj.geometry.dispose();
-        if (obj.material) {
-            if (Array.isArray(obj.material)) {
-                obj.material.forEach(m => m.dispose());
-            } else {
-                obj.material.dispose();
-            }
-        }
-    }
-    
+    // Clear existing scene (recursive dispose of all objects)
+    clearScene();
+
     // Reset state
     resetGameState();
+    resetHelpModal();
     
     // Create scene based on level
     if (currentLevel === 1) {
@@ -384,6 +399,9 @@ function initEventListeners() {
 
     // Start Button
     document.getElementById('start-btn').addEventListener('click', startGame);
+
+    // Back to Level Select
+    document.getElementById('menu-btn').addEventListener('click', goToLevelSelect);
 
     // Help Modal
     document.getElementById('help-btn').addEventListener('click', () => {
@@ -930,136 +948,6 @@ function createCompletedCableAtSocket(cableNum, x, y, z) {
     });
 }
 
-function createRealisticSocket() {
-    const socketGroup = new THREE.Group();
-
-    // ========== RÜCKSEITE (LSA-Klemmen Seite) ==========
-    const backGroup = new THREE.Group();
-    backGroup.position.z = 0;
-
-    // Metallrahmen (Montagerahmen) - achteckig wie im Foto
-    const frameShape = new THREE.Shape();
-    const fw = 5.5, fh = 5.5, corner = 1.2;
-    frameShape.moveTo(-fw + corner, -fh);
-    frameShape.lineTo(fw - corner, -fh);
-    frameShape.lineTo(fw, -fh + corner);
-    frameShape.lineTo(fw, fh - corner);
-    frameShape.lineTo(fw - corner, fh);
-    frameShape.lineTo(-fw + corner, fh);
-    frameShape.lineTo(-fw, fh - corner);
-    frameShape.lineTo(-fw, -fh + corner);
-    frameShape.closePath();
-
-    const frameExtrudeSettings = { depth: 0.15, bevelEnabled: false };
-    const frameGeometry = new THREE.ExtrudeGeometry(frameShape, frameExtrudeSettings);
-    const frameMaterial = new THREE.MeshStandardMaterial({
-        color: 0xc0c0c0,
-        roughness: 0.3,
-        metalness: 0.8
-    });
-    const frame = new THREE.Mesh(frameGeometry, frameMaterial);
-    frame.position.z = -0.3;
-    backGroup.add(frame);
-
-    // Montagelöcher (oval wie im Foto)
-    const holePositions = [
-        [0, 5.2], [0, -5.2], [-5.2, 0], [5.2, 0]
-    ];
-    holePositions.forEach(([x, y]) => {
-        const holeGeometry = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 16);
-        const holeMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
-        const hole = new THREE.Mesh(holeGeometry, holeMaterial);
-        hole.rotation.x = Math.PI / 2;
-        hole.position.set(x, y, -0.2);
-        backGroup.add(hole);
-    });
-
-    // Weißer Kunststoff-Einsatz (Hauptkörper) - durchgehend bis zur Vorderseite
-    const bodyGeometry = new THREE.BoxGeometry(9, 9, 2.5);
-    const bodyMaterial = new THREE.MeshStandardMaterial({
-        color: 0xf8f8f8,
-        roughness: 0.4,
-        metalness: 0.05
-    });
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.z = -0.5;
-    backGroup.add(body);
-
-    // Innerer Bereich (leicht vertieft) - Rückseite
-    const innerGeometry = new THREE.BoxGeometry(7.5, 6, 0.3);
-    const innerMaterial = new THREE.MeshStandardMaterial({
-        color: 0xf0f0f0,
-        roughness: 0.5
-    });
-    const inner = new THREE.Mesh(innerGeometry, innerMaterial);
-    inner.position.z = 0.8;
-    backGroup.add(inner);
-
-    // Transparente Schutzkappe
-    const coverGeometry = new THREE.BoxGeometry(7, 4.5, 0.08);
-    const coverMaterial = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.25,
-        roughness: 0.05
-    });
-    const cover = new THREE.Mesh(coverGeometry, coverMaterial);
-    cover.position.set(0, 0.8, 1.1);
-    backGroup.add(cover);
-
-    // LSA-Klemmen erstellen - Dose A (links) - zum Spielen
-    createLSABlock(backGroup, 1, -2.2, 0.5);
-
-    // LSA-Klemmen erstellen - Dose B (rechts) - bereits fertig
-    createLSABlockCompleted(backGroup, 2, 2.2, 0.5);
-
-    // T568A/B Beschriftung
-    createStandardLabel(backGroup, 'T568A', 0, -2.8, 1.0);
-
-    socketGroup.add(backGroup);
-
-    // ========== VORDERSEITE (RJ45 Buchsen) ==========
-    const frontGroup = new THREE.Group();
-    frontGroup.position.z = -1.8;  // Direkt an der Rückseite anliegend
-
-    // Grauer Zentraleinsatz (wie im Foto)
-    const frontPlateGeometry = new THREE.BoxGeometry(5.5, 3.5, 0.4);
-    const frontPlateMaterial = new THREE.MeshStandardMaterial({
-        color: 0x808080,
-        roughness: 0.5,
-        metalness: 0.1
-    });
-    const frontPlate = new THREE.Mesh(frontPlateGeometry, frontPlateMaterial);
-    frontPlate.position.set(0, 0, -0.2);
-    frontGroup.add(frontPlate);
-
-    // L und R Beschriftungen (gespiegelt da Vorderseite)
-    createFrontLabel(frontGroup, 'L', 1.8, 1.5, 0.05);
-    createFrontLabel(frontGroup, 'R', -1.8, 1.5, 0.05);
-    createFrontLabel(frontGroup, 'L', 1.8, -1.5, 0.05);
-    createFrontLabel(frontGroup, 'R', -1.8, -1.5, 0.05);
-
-    // RJ45 Buchsen (gespiegelt)
-    createRJ45JackFront(frontGroup, 1.4, 0);   // Dose A (links von hinten = rechts von vorne)
-    createRJ45JackFront(frontGroup, -1.4, 0);  // Dose B (rechts von hinten = links von vorne)
-
-    // Metallrahmen auch für Vorderseite
-    const frontFrameGeometry = new THREE.ExtrudeGeometry(frameShape, frameExtrudeSettings);
-    const frontFrame = new THREE.Mesh(frontFrameGeometry, frameMaterial);
-    frontFrame.position.z = -0.5;
-    frontFrame.rotation.y = Math.PI;
-    frontGroup.add(frontFrame);
-
-    socketGroup.add(frontGroup);
-
-    // ========== A/B Labels als separate Sprites (immer sichtbar) ==========
-    createFloatingLabel(socketGroup, 'A', -2.2, 3.5, 1.2, '#4169E1');
-    createFloatingLabel(socketGroup, 'B', 2.2, 3.5, 1.2, '#2E8B57');
-
-    socketMesh = socketGroup;
-    scene.add(socketGroup);
-}
-
 // Bereits fertig verkabelte LSA-Klemmen für Dose B
 function createLSABlockCompleted(parent, socketNum, centerX, centerY) {
     // LSA-Klemmenblock
@@ -1404,10 +1292,6 @@ function create3DColorIndicator(parent, x, y, z, color1, color2) {
     parent.add(indicator);
 }
 
-function createColorIndicator(parent, x, y, z, color1, color2) {
-    // Legacy-Funktion - nicht mehr verwendet
-}
-
 function createLSAClip(parent, x, y, z, expectedCoreId, socketNum, row, index) {
     // LSA-Klemme (Schneidklemme)
     const clipGeometry = new THREE.BoxGeometry(0.35, 0.5, 0.3);
@@ -1430,71 +1314,6 @@ function createLSAClip(parent, x, y, z, expectedCoreId, socketNum, row, index) {
     parent.add(clip);
 
     return clip;
-}
-
-function createEthernetCable(cableNum, x, y) {
-    const cableGroup = new THREE.Group();
-    cableGroup.position.set(x, y, 4);
-
-    // Kabelmantel (orange - Verlegekabel)
-    const cableGeometry = new THREE.CylinderGeometry(0.5, 0.5, 4, 16);
-    const cableMaterial = new THREE.MeshStandardMaterial({
-        color: 0xFF8C00,  // Orange für Verlegekabel
-        roughness: 0.5
-    });
-    const cable = new THREE.Mesh(cableGeometry, cableMaterial);
-    cable.rotation.x = Math.PI / 2;
-    cable.position.set(0, 0, 2);  // Kabel zeigt nach hinten (weg von Dose)
-    cableGroup.add(cable);
-
-    // Kabelende (wo Adern rauskommen)
-    const cableEndGeometry = new THREE.CylinderGeometry(0.5, 0.35, 0.5, 16);
-    const cableEnd = new THREE.Mesh(cableEndGeometry, cableMaterial);
-    cableEnd.rotation.x = Math.PI / 2;
-    cableEnd.position.set(0, 0, 0);
-    cableGroup.add(cableEnd);
-
-    // Kabel-Label
-    const labelCanvas = document.createElement('canvas');
-    const ctx = labelCanvas.getContext('2d');
-    labelCanvas.width = 128;
-    labelCanvas.height = 64;
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 24px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`Kabel ${cableNum}`, 64, 32);
-    
-    const labelTexture = new THREE.CanvasTexture(labelCanvas);
-    const labelMaterial = new THREE.SpriteMaterial({ map: labelTexture });
-    const label = new THREE.Sprite(labelMaterial);
-    label.position.set(0, 1.2, 2);
-    label.scale.set(1.8, 0.9, 1);
-    cableGroup.add(label);
-
-    // Speichere Kabelende-Position für Drahtverbindungen
-    cableGroup.userData.cableEndWorldPos = new THREE.Vector3(x, y, 4);
-
-    // Abisolierte Kabeladern (fächerförmig nach vorne zur Dose)
-    T568A_COLORS.forEach((core, index) => {
-        const wireGeometry = new THREE.CylinderGeometry(0.06, 0.06, 2, 8);
-        const wireMaterial = createWireMaterial(core);
-
-        const wire = new THREE.Mesh(wireGeometry, wireMaterial);
-
-        // Fächerförmige Anordnung nach vorne (zur Dose hin)
-        const spreadX = ((index % 4) - 1.5) * 0.25;
-        const spreadY = index < 4 ? 0.4 : -0.4;
-        
-        wire.rotation.x = Math.PI / 2;
-        wire.position.set(spreadX, spreadY, -1);
-
-        wire.userData = { coreId: core.id, cableNum: cableNum };
-        cableGroup.add(wire);
-    });
-
-    cableMeshes[cableNum] = cableGroup;
-    scene.add(cableGroup);
 }
 
 function createWireMaterial(core) {
@@ -1552,30 +1371,6 @@ function selectCore(coreId) {
             coreEl.classList.add('selected');
         }
     }
-}
-
-function setActiveCable(cableNum) {
-    // Nur Kabel 1 ist spielbar - diese Funktion wird nicht mehr benötigt
-    gameState.activeCable = 1;
-}
-
-function animateCameraTarget(targetX) {
-    const startX = controls.target.x;
-    const duration = 500;
-    const startTime = Date.now();
-
-    function animate() {
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3);
-
-        controls.target.x = startX + (targetX - startX) * eased;
-
-        if (progress < 1) {
-            requestAnimationFrame(animate);
-        }
-    }
-    animate();
 }
 
 function onCanvasClick(event) {
@@ -1820,11 +1615,13 @@ function showFeedback(message, type) {
     const overlay = document.getElementById('instructions-overlay');
 
     overlay.textContent = message;
-    overlay.style.background = type === 'success'
-        ? 'rgba(34, 197, 94, 0.8)'
-        : type === 'warning'
-            ? 'rgba(245, 158, 11, 0.8)'
-            : 'rgba(239, 68, 68, 0.8)';
+    const bgColors = {
+        success: 'rgba(34, 197, 94, 0.8)',
+        warning: 'rgba(245, 158, 11, 0.8)',
+        info: 'rgba(37, 99, 235, 0.8)',
+        error: 'rgba(239, 68, 68, 0.8)'
+    };
+    overlay.style.background = bgColors[type] || bgColors.info;
 
     setTimeout(() => {
         overlay.innerHTML = '<p>🖱️ Linke Maustaste + Ziehen = Drehen | Scrollrad = Zoomen | Rechte Maustaste = Verschieben</p>';
@@ -1922,6 +1719,16 @@ function calculateTimeBonus() {
     if (time <= 240) return 0.8;
     if (time <= 300) return 0.7;
     return 0.5;
+}
+
+function calculateLevel3TimeBonus(timeUsed) {
+    // 3-Minuten-Limit: schneller = besser
+    // Unter 60s = 1.0, unter 90s = 0.95, unter 120s = 0.9, unter 150s = 0.8, darüber = 0.7
+    if (timeUsed <= 60) return 1.0;
+    if (timeUsed <= 90) return 0.95;
+    if (timeUsed <= 120) return 0.9;
+    if (timeUsed <= 150) return 0.8;
+    return 0.7;
 }
 
 function showResult(correct, total, errors, score) {
@@ -2082,7 +1889,7 @@ function resetGame() {
     // Timer stoppen
     stopTimer();
 
-    // Spielzustand zurücksetzen
+    // Gemeinsamer Spielzustand zurücksetzen
     gameState.isStarted = false;
     gameState.startTime = null;
     gameState.elapsedTime = 0;
@@ -2095,6 +1902,71 @@ function resetGame() {
     gameState.undoHistory = [];
     updateUndoButton();
 
+    // Timer Display zurücksetzen
+    document.getElementById('timer-display').textContent = '00:00';
+
+    // Level-spezifischer Reset
+    if (currentLevel === 1) {
+        resetLevel1();
+    } else if (currentLevel === 2) {
+        resetLevel2();
+    } else if (currentLevel === 3) {
+        resetLevel3();
+    }
+
+    // Hilfe-Modal zurücksetzen
+    resetHelpModal();
+
+    // Check Button deaktivieren
+    const checkBtn = document.getElementById('check-btn');
+    if (checkBtn) {
+        checkBtn.disabled = true;
+        checkBtn.classList.remove('pulse');
+    }
+
+    // Modals schließen
+    document.getElementById('result-modal').classList.add('hidden');
+
+    // Start Modal anzeigen
+    updateStartModal();
+    document.getElementById('start-modal').classList.remove('hidden');
+}
+
+function resetLevel1() {
+    // Kabel-Segmente aus der Szene entfernen
+    cableSegmentMeshes.forEach(seg => {
+        scene.remove(seg);
+        disposeObject(seg);
+    });
+    cableSegmentMeshes = [];
+
+    // Slots zurücksetzen
+    kabelkanalSlots.forEach(slot => {
+        slot.userData.filled = false;
+        slot.material.color.setHex(0x90EE90);
+        slot.material.opacity = 0.3;
+    });
+
+    // Deckel verstecken
+    if (kabelkanalDeckel) {
+        kabelkanalDeckel.visible = false;
+        kabelkanalDeckel.rotation.x = -Math.PI / 2;
+        kabelkanalDeckel.position.y = -1.5 / 2 - 0.5;
+        kabelkanalDeckel.position.z = 1.2 / 2 + 1.5 / 2;
+    }
+
+    // Level 1 State zurücksetzen
+    gameState.level1.placedSegments = 0;
+    gameState.level1.cableInHand = false;
+    gameState.level1.selectedSegment = null;
+    gameState.level1.cableSegments = [];
+
+    // UI zurücksetzen
+    updateLevel1UI();
+    updateLevel1Progress();
+}
+
+function resetLevel2() {
     // Dose zurück auf den Tisch (flach liegend, LSA-Klemmen nach oben)
     if (socketMesh) {
         socketMesh.position.set(0, -2.5, 4);
@@ -2110,9 +1982,6 @@ function resetGame() {
         cableMeshes[2].position.set(-5, -0.4, 3.2);
     }
 
-    // Timer Display zurücksetzen
-    document.getElementById('timer-display').textContent = '00:00';
-
     // LSA-Clips zurücksetzen (nur für Kabel 1, Kabel 2 ist bereits fertig)
     lsaClipMeshes[1].forEach(clip => {
         clip.material.color = new THREE.Color(0x888888);
@@ -2124,8 +1993,7 @@ function resetGame() {
     // Drähte von Kabel 1 entfernen
     wireMeshes[1].forEach(wire => {
         scene.remove(wire);
-        wire.geometry.dispose();
-        wire.material.dispose();
+        disposeObject(wire);
     });
     wireMeshes[1] = [];
 
@@ -2141,16 +2009,68 @@ function resetGame() {
 
     updateCableCoresUI();
     updateProgress();
+}
 
-    // Check Button deaktivieren
-    document.getElementById('check-btn').disabled = true;
-    document.getElementById('check-btn').classList.remove('pulse');
+function resetLevel3() {
+    // Level 3 Timer stoppen
+    gameState.level3.timerActive = false;
+
+    // Patchkabel aus der Szene entfernen
+    patchCableMeshes.forEach(cable => {
+        scene.remove(cable);
+        disposeObject(cable);
+    });
+    patchCableMeshes = [];
+
+    // Port-Zustände zurücksetzen
+    patchPortMeshes.forEach(port => {
+        port.userData.isConnected = false;
+        port.material.color = new THREE.Color(0x1a1a1a);
+        port.material.emissive = new THREE.Color(0x000000);
+    });
+    switch1PortMeshes.forEach(port => {
+        port.userData.isConnected = false;
+        port.material.color = new THREE.Color(0x1a1a1a);
+    });
+    switch2PortMeshes.forEach(port => {
+        port.userData.isConnected = false;
+        port.material.color = new THREE.Color(0x1a1a1a);
+    });
+
+    // Level 3 State zurücksetzen
+    gameState.level3.selectedPatchPort = null;
+    gameState.level3.selectedSwitchPort = null;
+    gameState.level3.connections = [];
+    gameState.level3.timeRemaining = LEVELS[3].timeLimit;
+    gameState.level3.timerActive = false;
+
+    // UI zurücksetzen
+    updateLevel3UI();
+}
+
+function resetHelpModal() {
+    gameState.helpUsed = 0;
+    document.querySelectorAll('.btn-hint').forEach(btn => {
+        const content = btn.previousElementSibling;
+        if (content) content.classList.add('hidden');
+        btn.classList.remove('revealed');
+        btn.textContent = 'Hilfe anzeigen';
+        btn.disabled = false;
+    });
+}
+
+function goToLevelSelect() {
+    stopTimer();
+    gameState.isStarted = false;
+    gameState.level3.timerActive = false;
 
     // Modals schließen
+    document.getElementById('start-modal').classList.add('hidden');
     document.getElementById('result-modal').classList.add('hidden');
+    document.getElementById('help-modal').classList.add('hidden');
 
-    // Start Modal anzeigen
-    document.getElementById('start-modal').classList.remove('hidden');
+    // Level-Auswahl anzeigen
+    document.getElementById('level-select-modal').classList.remove('hidden');
 }
 
 // ============================================
@@ -3386,13 +3306,16 @@ function startLevel3Timer() {
 
 function updateLevel3Timer() {
     if (!gameState.level3.timerActive || !gameState.isStarted) return;
-    
+
     gameState.level3.timeRemaining--;
-    updateLevel3TimerDisplay();
 
     if (gameState.level3.timeRemaining <= 0) {
+        gameState.level3.timeRemaining = 0;
+        updateLevel3TimerDisplay();
         gameState.level3.timerActive = false;
         handleLevel3TimeUp();
+    } else {
+        updateLevel3TimerDisplay();
     }
 }
 
@@ -3422,6 +3345,7 @@ function handleLevel3TimeUp() {
 }
 
 function checkLevel3Solution() {
+    stopTimer();
     const connections = gameState.level3.connections;
     const required = gameState.level3.requiredConnections;
     
@@ -3466,8 +3390,10 @@ function showLevel3Result(success, correct, total, wrongConnections, missingPort
     const errorsEl = document.getElementById('result-errors');
     const retryBtn = document.getElementById('result-retry');
 
-    // Level 3 Score berechnen und speichern
-    const level3Score = success ? Math.round((correct / total) * 100) : 0;
+    // Level 3 Score berechnen mit Zeitbonus
+    const accuracy = correct / total;
+    const timeBonus = success ? calculateLevel3TimeBonus(timeUsed) : 0;
+    const level3Score = success ? Math.round(accuracy * 100 * timeBonus) : 0;
     if (success) {
         gameState.levelScores[3] = {
             score: level3Score,

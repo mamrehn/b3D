@@ -485,16 +485,6 @@ body {
 }
 
 .solution-table td {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.solution-table tr {
-    display: table-row;
-}
-
-.solution-table td {
     display: table-cell;
 }
 
