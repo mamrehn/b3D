@@ -1059,7 +1059,7 @@ body {
     }
 
     .level-grid {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(2, 1fr);
     }
 
     .level-btn {
@@ -1074,4 +1074,65 @@ body {
     .level-btn:hover:not(.locked) {
         transform: translateY(-3px);
     }
+}
+
+/* ============================================
+   Level 4: Ping Terminal & Connection Status
+   ============================================ */
+
+.ping-terminal {
+    background: #0c0c0c;
+    color: #00ff41;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.75rem;
+    padding: 0.75rem;
+    border-radius: var(--radius);
+    white-space: pre-wrap;
+    line-height: 1.5;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 0.5rem;
+    border: 1px solid #333;
+}
+
+.ping-terminal .prompt {
+    color: #cccccc;
+}
+
+.ping-terminal .reply {
+    color: #00ff41;
+}
+
+.ping-terminal .stats {
+    color: #ffaa00;
+}
+
+.ping-terminal .info {
+    color: #88aaff;
+}
+
+.connection-status-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0.75rem 0;
+}
+
+.conn-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+}
+
+.conn-item.done {
+    background: rgba(34, 197, 94, 0.15);
+    border-left: 3px solid var(--success-color);
+}
+
+.conn-icon {
+    font-size: 1.1rem;
 }
