@@ -114,6 +114,66 @@ let patchCableMeshes = [];          // Verlegte Patchkabel
 let wallCableMeshes = [];           // Kabel von der Wand zum Patchpanel (24 Stück)
 
 // ============================================
+// Mobile / Touch Hilfsfunktionen
+// ============================================
+
+function isMobile() {
+    return window.matchMedia('(max-width: 768px)').matches;
+}
+
+function isTouchDevice() {
+    return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+}
+
+function setInstructionsText() {
+    const el = document.getElementById('instructions-text');
+    if (!el) return;
+    if (isTouchDevice()) {
+        el.textContent = '👆 Tippen = Auswählen | 1 Finger ziehen = Drehen | 2 Finger = Zoomen';
+    } else {
+        el.textContent = '🖱️ Linke Maustaste + Ziehen = Drehen | Scrollrad = Zoomen | Rechte Maustaste = Verschieben';
+    }
+}
+
+function autoAnimateCamera() {
+    if (!controls || !camera) return;
+    const startAngle = Math.atan2(
+        camera.position.x - controls.target.x,
+        camera.position.z - controls.target.z
+    );
+    const radius = camera.position.distanceTo(controls.target);
+    const startY = camera.position.y;
+    const duration = 2000;
+    const startTime = Date.now();
+    const maxRotation = 0.3; // ~17 degrees total sweep
+
+    function animateOrbit() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        // Ease-in-out sine wave: swing right then back
+        const swing = Math.sin(progress * Math.PI) * maxRotation;
+        const angle = startAngle + swing;
+        camera.position.x = controls.target.x + radius * Math.sin(angle);
+        camera.position.z = controls.target.z + radius * Math.cos(angle);
+        camera.position.y = startY;
+        camera.lookAt(controls.target);
+        if (progress < 1) {
+            requestAnimationFrame(animateOrbit);
+        }
+    }
+    animateOrbit();
+}
+
+function showLandscapeHint() {
+    const hint = document.getElementById('landscape-hint');
+    if (!hint) return;
+    if (currentLevel === 3 && isMobile() && window.matchMedia('(orientation: portrait)').matches) {
+        hint.classList.add('visible');
+        setTimeout(() => { hint.classList.remove('visible'); }, 4000);
+    }
+}
+
+// ============================================
 // Hilfsfunktionen
 // ============================================
 
@@ -151,6 +211,7 @@ function init() {
     initThreeJS();
     initUI();
     initEventListeners();
+    setInstructionsText();
     // Zeige Level-Auswahl statt direkt Scene zu erstellen
     showLevelSelect();
     animate();
@@ -188,9 +249,15 @@ function selectLevel(level) {
     }
     
     // Update header
-    document.querySelector('#header h1').textContent = 
+    document.querySelector('#header h1').textContent =
         `${LEVELS[currentLevel].icon} ${LEVELS[currentLevel].name}`;
-    
+
+    // Adjust camera for screen size
+    onWindowResize();
+
+    // Show landscape hint for Level 3 on mobile portrait
+    showLandscapeHint();
+
     // Show start modal
     updateStartModal();
     document.getElementById('start-modal').classList.remove('hidden');
@@ -243,7 +310,10 @@ function updateStartModal() {
     const modal = document.getElementById('start-modal');
     const header = modal.querySelector('.modal-header h2');
     const body = modal.querySelector('.start-info');
-    
+    const touch = isTouchDevice();
+    const tapOrClick = touch ? 'Tippe auf' : 'Klicke auf';
+    const sidebarLabel = isMobile() ? 'im unteren Bereich' : 'in der Seitenleiste';
+
     if (currentLevel === 1) {
         header.textContent = '📏 Level 1: Kabelkanal';
         body.innerHTML = `
@@ -251,8 +321,8 @@ function updateStartModal() {
             <p>Deine Aufgabe ist es, das <strong>orangene Verlegekabel</strong> korrekt im <strong>weißen Kabelkanal</strong> zu verlegen.</p>
             <h3>So funktioniert's:</h3>
             <ol>
-                <li>Klicke auf "Kabel aufnehmen" um das Kabel zu greifen</li>
-                <li>Klicke auf die freien Positionen im Kabelkanal</li>
+                <li>${tapOrClick} "Kabel aufnehmen" um das Kabel zu greifen</li>
+                <li>${tapOrClick} die freien Positionen im Kabelkanal</li>
                 <li>Verlege das Kabel von links nach rechts</li>
                 <li>Schließe den Deckel wenn fertig</li>
             </ol>
@@ -266,8 +336,8 @@ function updateStartModal() {
             <p class="info-note">ℹ️ Die Dose B ist bereits fertig verkabelt - nutze sie als Referenz!</p>
             <h3>So funktioniert's:</h3>
             <ol>
-                <li>Wähle eine Kabelader aus der Seitenleiste</li>
-                <li>Klicke auf die entsprechende LSA-Klemme in Dose A</li>
+                <li>Wähle eine Kabelader ${sidebarLabel}</li>
+                <li>${tapOrClick} die entsprechende LSA-Klemme in Dose A</li>
                 <li>Belege alle 8 Klemmen korrekt</li>
                 <li>Prüfe deine Belegung</li>
             </ol>
@@ -283,7 +353,7 @@ function updateStartModal() {
             <ol>
                 <li>Verbinde <strong>Ports 1-12</strong> des Patchpanels mit <strong>Switch Büro 1</strong> (oben)</li>
                 <li>Verbinde <strong>Ports 13-24</strong> des Patchpanels mit <strong>Switch Büro 2</strong> (unten)</li>
-                <li>Klicke auf einen Patchpanel-Port, dann auf den passenden Switch-Port</li>
+                <li>${tapOrClick} einen Patchpanel-Port, dann auf den passenden Switch-Port</li>
             </ol>
             <p class="tip">💡 <strong>Tipp:</strong> Das <span style="color: #FF8C00;">orangene Kabel</span> ist das Kabel aus Level 1 & 2 (DD1-1). Die anderen 23 Kabel sind <span style="color: #FFD700;">gelb</span>.</p>
         `;
@@ -315,11 +385,14 @@ function initThreeJS() {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
+    // Touch-action to prevent browser gesture interference
+    renderer.domElement.style.touchAction = 'none';
+
     // Controls
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.minDistance = 5;
+    controls.minDistance = isMobile() ? 3 : 5;
     controls.maxDistance = 30;
     controls.target.set(0, 0, 0);
 
@@ -329,6 +402,9 @@ function initThreeJS() {
 
     // Resize Handler
     window.addEventListener('resize', onWindowResize);
+    window.addEventListener('orientationchange', () => {
+        setTimeout(onWindowResize, 150);
+    });
 }
 
 function initUI() {
@@ -1613,8 +1689,13 @@ function updateProgress() {
 function showFeedback(message, type) {
     // Einfaches visuelles Feedback
     const overlay = document.getElementById('instructions-overlay');
+    const textEl = document.getElementById('instructions-text');
 
-    overlay.textContent = message;
+    if (textEl) {
+        textEl.textContent = message;
+    } else {
+        overlay.textContent = message;
+    }
     const bgColors = {
         success: 'rgba(34, 197, 94, 0.8)',
         warning: 'rgba(245, 158, 11, 0.8)',
@@ -1624,7 +1705,7 @@ function showFeedback(message, type) {
     overlay.style.background = bgColors[type] || bgColors.info;
 
     setTimeout(() => {
-        overlay.innerHTML = '<p>🖱️ Linke Maustaste + Ziehen = Drehen | Scrollrad = Zoomen | Rechte Maustaste = Verschieben</p>';
+        setInstructionsText();
         overlay.style.background = 'rgba(0, 0, 0, 0.7)';
     }, 2000);
 }
@@ -1640,11 +1721,14 @@ function startGame() {
 
     // Timer starten
     gameState.timerInterval = setInterval(updateTimer, 1000);
-    
+
     // Level 3: Countdown-Timer starten
     if (currentLevel === 3) {
         startLevel3Timer();
     }
+
+    // Subtle camera swing to hint that scene is interactive 3D
+    autoAnimateCamera();
 }
 
 function updateTimer() {
@@ -2086,6 +2170,8 @@ function animate() {
 function onWindowResize() {
     const container = document.getElementById('canvas-container');
     camera.aspect = container.clientWidth / container.clientHeight;
+    // Wider FOV on mobile for better framing in portrait
+    camera.fov = isMobile() ? 55 : 45;
     camera.updateProjectionMatrix();
     renderer.setSize(container.clientWidth, container.clientHeight);
 }
@@ -3040,7 +3126,7 @@ function updateLevel3UI() {
                 <span class="port-value">-</span>
             </div>
         </div>
-        <p class="hint-text">💡 Klicke auf einen Patchpanel-Port, dann auf den passenden Switch-Port</p>
+        <p class="hint-text">💡 ${isTouchDevice() ? 'Tippe auf' : 'Klicke auf'} einen Patchpanel-Port, dann auf den passenden Switch-Port</p>
     `;
     cableCoresContainer.appendChild(instructionsDiv);
 

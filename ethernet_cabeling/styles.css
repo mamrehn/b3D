@@ -1,4 +1,4 @@
-﻿/* Reset und Basis-Styles */
+/* Reset und Basis-Styles */
 * {
     margin: 0;
     padding: 0;
@@ -19,6 +19,7 @@
     --border-color: #475569;
     --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
     --radius: 8px;
+    --touch-target: 44px;
 }
 
 html, body {
@@ -37,23 +38,31 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
+    height: 100dvh;
 }
 
-/* Header */
+/* ==========================================
+   Header - Mobile first (compact)
+   ========================================== */
 #header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.75rem 1.5rem;
+    padding: 0.4rem 0.5rem;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
     z-index: 100;
+    gap: 0.25rem;
 }
 
 .header-left h1 {
-    font-size: 1.25rem;
+    font-size: 0.85rem;
     font-weight: 600;
     color: var(--text-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 110px;
 }
 
 .header-center {
@@ -64,36 +73,45 @@ body {
 #timer {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
+    gap: 0.25rem;
+    padding: 0.3rem 0.5rem;
     background: var(--bg-tertiary);
     border-radius: var(--radius);
-    font-size: 1.5rem;
+    font-size: 1rem;
     font-family: 'Consolas', 'Courier New', monospace;
     font-weight: bold;
 }
 
 .timer-icon {
-    font-size: 1.25rem;
+    font-size: 1rem;
 }
 
 .header-right {
     display: flex;
-    gap: 0.75rem;
+    gap: 0.35rem;
 }
 
-/* Buttons */
+/* Hide button text on mobile, show only icon */
+.btn-text {
+    display: none;
+}
+
+/* ==========================================
+   Buttons - Mobile first (touch-friendly)
+   ========================================== */
 .btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
-    padding: 0.5rem 1rem;
+    padding: 0.5rem 0.75rem;
     font-size: 0.9rem;
     font-weight: 500;
     border: none;
     border-radius: var(--radius);
     cursor: pointer;
     transition: all 0.2s ease;
+    min-height: var(--touch-target);
 }
 
 .btn:hover {
@@ -163,16 +181,36 @@ body {
     color: white;
 }
 
-/* Main Layout */
+.btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: var(--border-color);
+}
+
+.btn-secondary:disabled {
+    opacity: 0.4;
+}
+
+/* ==========================================
+   Main Layout - Mobile first (column)
+   ========================================== */
 #main {
     display: flex;
+    flex-direction: column;
     flex: 1;
     overflow: hidden;
 }
 
-/* Canvas Container */
+/* ==========================================
+   Canvas Container
+   ========================================== */
 #canvas-container {
-    flex: 1;
+    flex: 1 1 58vh;
+    min-height: 0;
     position: relative;
     background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
 }
@@ -181,66 +219,91 @@ body {
     width: 100%;
     height: 100%;
     display: block;
+    touch-action: none;
 }
 
 #instructions-overlay {
     position: absolute;
-    bottom: 1rem;
+    bottom: 0.5rem;
     left: 50%;
     transform: translateX(-50%);
     background: rgba(0, 0, 0, 0.7);
-    padding: 0.5rem 1rem;
+    padding: 0.35rem 0.75rem;
     border-radius: var(--radius);
-    font-size: 0.8rem;
+    font-size: 0.65rem;
     color: var(--text-muted);
+    max-width: 95%;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-/* Sidebar */
+/* ==========================================
+   Sidebar / Bottom Panel - Mobile first
+   ========================================== */
 #sidebar {
-    width: 320px;
+    flex: 0 0 auto;
+    max-height: 42vh;
+    width: 100%;
     background: var(--bg-secondary);
-    border-left: 1px solid var(--border-color);
+    border-top: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Scroll hint handle - mobile only */
+.scroll-hint {
+    display: block;
+    width: 40px;
+    height: 4px;
+    background: var(--border-color);
+    border-radius: 2px;
+    margin: 6px auto 2px;
+    flex-shrink: 0;
 }
 
 .panel {
-    padding: 1rem;
+    padding: 0.75rem;
     border-bottom: 1px solid var(--border-color);
 }
 
 .panel h3 {
-    font-size: 1rem;
+    font-size: 0.9rem;
     font-weight: 600;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
     color: var(--text-color);
 }
 
 .panel-description {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--text-muted);
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
 }
 
-/* Cable Cores */
+/* ==========================================
+   Cable Cores - Mobile first (4 columns)
+   ========================================== */
 #cable-cores {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.5rem;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.4rem;
 }
 
 .cable-core {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
+    gap: 0.4rem;
+    padding: 0.5rem;
     background: var(--bg-tertiary);
     border: 2px solid transparent;
     border-radius: var(--radius);
     cursor: pointer;
     transition: all 0.2s ease;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    min-height: var(--touch-target);
 }
 
 .cable-core:hover:not(.used) {
@@ -260,21 +323,23 @@ body {
 }
 
 .cable-core .color-indicator {
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     border: 2px solid var(--border-color);
     flex-shrink: 0;
 }
 
 .cable-core .core-name {
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-/* Socket Selector */
+/* ==========================================
+   Socket Selector & Status
+   ========================================== */
 #socket-selector {
     display: flex;
     gap: 0.5rem;
@@ -291,6 +356,7 @@ body {
     cursor: pointer;
     transition: all 0.2s ease;
     font-size: 0.9rem;
+    min-height: var(--touch-target);
 }
 
 .socket-btn:hover {
@@ -305,16 +371,16 @@ body {
 #socket-status {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.4rem;
 }
 
 .socket-status-item {
     display: flex;
     justify-content: space-between;
-    padding: 0.5rem;
+    padding: 0.4rem 0.5rem;
     background: var(--bg-tertiary);
     border-radius: var(--radius);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
 }
 
 .socket-status-item span:last-child {
@@ -351,7 +417,9 @@ body {
     background: var(--bg-color);
 }
 
-/* Modal */
+/* ==========================================
+   Modal - Mobile first (near full-screen)
+   ========================================== */
 .modal {
     position: fixed;
     top: 0;
@@ -363,7 +431,7 @@ body {
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    padding: 1rem;
+    padding: 0.5rem;
 }
 
 .modal.hidden {
@@ -373,9 +441,9 @@ body {
 .modal-content {
     background: var(--bg-secondary);
     border-radius: var(--radius);
-    max-width: 600px;
+    max-width: 100%;
     width: 100%;
-    max-height: 90vh;
+    max-height: 95vh;
     overflow-y: auto;
     box-shadow: var(--shadow);
     border: 1px solid var(--border-color);
@@ -385,12 +453,12 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem 1.5rem;
+    padding: 0.75rem 1rem;
     border-bottom: 1px solid var(--border-color);
 }
 
 .modal-header h2 {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     font-weight: 600;
 }
 
@@ -401,6 +469,11 @@ body {
     color: var(--text-muted);
     cursor: pointer;
     transition: color 0.2s;
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .modal-close:hover {
@@ -408,25 +481,25 @@ body {
 }
 
 .modal-body {
-    padding: 1.5rem;
+    padding: 1rem;
 }
 
 /* Help Levels */
 .help-levels {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
 }
 
 .help-level {
     background: var(--bg-tertiary);
     border-radius: var(--radius);
-    padding: 1rem;
+    padding: 0.75rem;
     border-left: 4px solid var(--warning-color);
 }
 
 .help-level h3 {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     margin-bottom: 0.5rem;
 }
 
@@ -435,7 +508,7 @@ body {
     background: var(--bg-color);
     border-radius: var(--radius);
     margin-top: 0.5rem;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
 }
 
 .help-content.hidden {
@@ -459,7 +532,7 @@ body {
 }
 
 .mnemonic {
-    font-size: 1.1rem;
+    font-size: 1rem;
     color: var(--warning-color);
     padding: 0.5rem;
     background: rgba(245, 158, 11, 0.1);
@@ -470,11 +543,11 @@ body {
 .solution-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
 }
 
 .solution-table th, .solution-table td {
-    padding: 0.5rem;
+    padding: 0.4rem;
     text-align: left;
     border-bottom: 1px solid var(--border-color);
 }
@@ -500,11 +573,11 @@ body {
 /* Start Modal */
 .start-info {
     text-align: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
 }
 
 .start-info h3 {
-    margin: 1rem 0 0.5rem;
+    margin: 0.75rem 0 0.5rem;
     text-align: left;
 }
 
@@ -528,36 +601,36 @@ body {
 
 /* Result Modal */
 #result-icon {
-    font-size: 4rem;
+    font-size: 3rem;
     text-align: center;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 #result-score {
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: bold;
     text-align: center;
     margin-bottom: 0.5rem;
 }
 
 #result-time {
-    font-size: 1.1rem;
+    font-size: 1rem;
     text-align: center;
     color: var(--text-muted);
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 #result-details {
     text-align: center;
-    margin-bottom: 1rem;
-    padding: 1rem;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
     background: var(--bg-tertiary);
     border-radius: var(--radius);
 }
 
 #result-errors {
-    margin-bottom: 1rem;
-    padding: 1rem;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
     background: rgba(239, 68, 68, 0.1);
     border-radius: var(--radius);
     border-left: 4px solid var(--error-color);
@@ -570,7 +643,7 @@ body {
 
 #result-errors ul {
     margin-left: 1.5rem;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
 }
 
 #result-retry {
@@ -614,35 +687,9 @@ body {
     animation: shake 0.3s ease;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-    #main {
-        flex-direction: column;
-    }
-
-    #sidebar {
-        width: 100%;
-        max-height: 40vh;
-        border-left: none;
-        border-top: 1px solid var(--border-color);
-    }
-
-    #cable-cores {
-        grid-template-columns: repeat(4, 1fr);
-    }
-
-    .header-left h1 {
-        font-size: 1rem;
-    }
-
-    #timer {
-        font-size: 1.2rem;
-    }
-}
-
 /* Scrollbar */
 ::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -651,37 +698,40 @@ body {
 
 ::-webkit-scrollbar-thumb {
     background: var(--bg-tertiary);
-    border-radius: 4px;
+    border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
     background: var(--border-color);
 }
 
-/* Level Select Modal */
+/* ==========================================
+   Level Select Modal
+   ========================================== */
 .level-select-content {
-    max-width: 700px;
+    max-width: 100%;
 }
 
 .level-intro {
     text-align: center;
-    margin-bottom: 1.5rem;
-    font-size: 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
     color: var(--text-muted);
 }
 
 .level-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
 }
 
 .level-btn {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    padding: 1.25rem;
+    gap: 1rem;
+    padding: 1rem;
     background: var(--bg-tertiary);
     border: 2px solid var(--border-color);
     border-radius: var(--radius);
@@ -689,12 +739,17 @@ body {
     transition: all 0.3s ease;
     position: relative;
     color: var(--text-color);
+    min-height: 60px;
+    text-align: left;
 }
 
 .level-btn:hover:not(.locked) {
     border-color: var(--primary-color);
-    transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.level-btn:active:not(.locked) {
+    transform: scale(0.98);
 }
 
 .level-btn.locked {
@@ -703,27 +758,26 @@ body {
 }
 
 .level-btn .level-icon {
-    font-size: 2.5rem;
-    margin-bottom: 0.75rem;
+    font-size: 2rem;
+    flex-shrink: 0;
 }
 
 .level-btn .level-info h3 {
     font-size: 1rem;
     font-weight: 700;
     color: var(--primary-color);
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.15rem;
 }
 
 .level-btn .level-info p {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     font-weight: 600;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
 }
 
 .level-btn .level-desc {
     font-size: 0.75rem;
     color: var(--text-muted);
-    text-align: center;
 }
 
 .level-btn .lock-overlay {
@@ -735,14 +789,16 @@ body {
 
 .level-hint {
     text-align: center;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: var(--warning-color);
     background: rgba(245, 158, 11, 0.1);
-    padding: 0.75rem;
+    padding: 0.5rem;
     border-radius: var(--radius);
 }
 
-/* Level 1 Actions */
+/* ==========================================
+   Level 1 Actions
+   ========================================== */
 .level1-actions {
     display: flex;
     flex-direction: column;
@@ -759,41 +815,13 @@ body {
     border-color: var(--success-color);
 }
 
-.btn-secondary {
-    background: var(--bg-tertiary);
-    color: var(--text-color);
-    border: 1px solid var(--border-color);
-}
-
-.btn-secondary:hover:not(:disabled) {
-    background: var(--border-color);
-}
-
-.btn-secondary:disabled {
-    opacity: 0.4;
-}
-
-@media (max-width: 768px) {
-    .level-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .level-btn {
-        flex-direction: row;
-        text-align: left;
-        gap: 1rem;
-    }
-    
-    .level-btn .level-icon {
-        margin-bottom: 0;
-    }
-}
-
-/* Level 3 Styles */
+/* ==========================================
+   Level 3 Styles
+   ========================================== */
 .level3-instructions {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
 }
 
 .connection-guide {
@@ -801,31 +829,31 @@ body {
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    padding: 0.75rem;
+    padding: 0.5rem;
     background: var(--bg-tertiary);
     border-radius: var(--radius);
-    margin: 0.5rem 0;
+    margin: 0.25rem 0;
 }
 
 .port-indicator {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 0.5rem 0.75rem;
+    padding: 0.4rem 0.6rem;
     background: var(--bg-secondary);
     border-radius: var(--radius);
     border: 1px solid var(--border-color);
-    min-width: 80px;
+    min-width: 70px;
 }
 
 .port-indicator .port-label {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: var(--text-muted);
     text-transform: uppercase;
 }
 
 .port-indicator .port-value {
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: bold;
     color: var(--text-color);
 }
@@ -835,12 +863,12 @@ body {
 }
 
 .connection-guide .arrow {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     color: var(--success-color);
 }
 
 .hint-text {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--text-muted);
     text-align: center;
     font-style: italic;
@@ -852,7 +880,7 @@ body {
 
 #level3-timer {
     font-weight: bold;
-    font-size: 1.1rem;
+    font-size: 1rem;
 }
 
 #level3-timer.warning {
@@ -880,29 +908,29 @@ body {
     border: 1px solid rgba(34, 197, 94, 0.3);
     border-radius: var(--radius);
     padding: 0.5rem;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
 }
 
 /* Level 3 Switch Assignment Styles */
 .switch-assignment {
     background: var(--bg-tertiary);
     border-radius: var(--radius);
-    padding: 0.75rem;
-    margin: 0.5rem 0;
+    padding: 0.5rem;
+    margin: 0.25rem 0;
 }
 
 .assignment-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.4rem 0;
-    font-size: 0.85rem;
+    padding: 0.3rem 0;
+    font-size: 0.8rem;
 }
 
 .assignment-row:first-child {
     border-bottom: 1px solid var(--border-color);
-    padding-bottom: 0.5rem;
-    margin-bottom: 0.3rem;
+    padding-bottom: 0.4rem;
+    margin-bottom: 0.2rem;
 }
 
 .port-range {
@@ -941,4 +969,109 @@ body {
 .socket-status-item.completed span:last-child {
     color: var(--success-color);
     font-weight: bold;
+}
+
+/* ==========================================
+   Landscape Hint Overlay
+   ========================================== */
+.landscape-hint {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.92);
+    z-index: 2000;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-color);
+    font-size: 1.1rem;
+    gap: 1rem;
+    text-align: center;
+    padding: 2rem;
+}
+
+.landscape-hint.visible {
+    display: flex;
+}
+
+.landscape-hint .rotate-icon {
+    font-size: 3rem;
+    animation: rotate-hint 2s ease-in-out infinite;
+}
+
+@keyframes rotate-hint {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(90deg); }
+}
+
+.landscape-hint .hint-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+/* ==========================================
+   DESKTOP OVERRIDES - structural only
+   ========================================== */
+@media (min-width: 769px) {
+    #header {
+        padding: 0.75rem 1.5rem;
+    }
+
+    .header-left h1 {
+        font-size: 1.25rem;
+        max-width: none;
+    }
+
+    .btn-text {
+        display: inline;
+    }
+
+    /* Main layout - horizontal on desktop */
+    #main {
+        flex-direction: row;
+    }
+
+    #canvas-container {
+        flex: 1;
+    }
+
+    #sidebar {
+        width: 320px;
+        max-height: none;
+        border-top: none;
+        border-left: 1px solid var(--border-color);
+    }
+
+    .scroll-hint {
+        display: none;
+    }
+
+    #cable-cores {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .modal-content {
+        max-width: 600px;
+    }
+
+    .level-select-content {
+        max-width: 700px;
+    }
+
+    .level-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .level-btn {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .level-btn .level-icon {
+        margin-bottom: 0.75rem;
+    }
+
+    .level-btn:hover:not(.locked) {
+        transform: translateY(-3px);
+    }
 }

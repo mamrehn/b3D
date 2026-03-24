@@ -2,7 +2,9 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <title>Netzwerkdose Belegung - Lernspiel</title>
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -21,13 +23,13 @@
             </div>
             <div class="header-right">
                 <button id="menu-btn" class="btn btn-secondary" title="Zurück zur Level-Auswahl">
-                    <span>📋</span> Level-Auswahl
+                    <span class="btn-icon">📋</span><span class="btn-text">Level-Auswahl</span>
                 </button>
                 <button id="help-btn" class="btn btn-help" title="Hilfe anzeigen">
-                    <span>💡</span> Hilfe
+                    <span class="btn-icon">💡</span><span class="btn-text">Hilfe</span>
                 </button>
                 <button id="reset-btn" class="btn btn-reset" title="Neu starten">
-                    <span>🔄</span> Neustart
+                    <span class="btn-icon">🔄</span><span class="btn-text">Neustart</span>
                 </button>
             </div>
         </header>
@@ -39,12 +41,13 @@
                 <canvas id="scene"></canvas>
                 <!-- Overlay für Anweisungen -->
                 <div id="instructions-overlay">
-                    <p>🖱️ Linke Maustaste + Ziehen = Drehen | Scrollrad = Zoomen | Rechte Maustaste = Verschieben</p>
+                    <p id="instructions-text"></p>
                 </div>
             </div>
 
             <!-- Seitenleiste -->
             <aside id="sidebar">
+                <div class="scroll-hint" aria-hidden="true"></div>
                 <!-- Kabelader-Auswahl -->
                 <div class="panel" id="cable-panel">
                     <h3>📦 Kabeladern</h3>
@@ -226,6 +229,13 @@
                     <p class="level-hint">💡 Alle Level bauen aufeinander auf - es wird immer dasselbe Kabel verlegt!</p>
                 </div>
             </div>
+        </div>
+
+        <!-- Landscape Hint (Level 3, mobile portrait) -->
+        <div id="landscape-hint" class="landscape-hint">
+            <div class="rotate-icon">📱</div>
+            <p>Bitte drehe dein Gerät ins Querformat</p>
+            <p class="hint-subtitle">Landscape empfohlen für dieses Level</p>
         </div>
 
         <!-- Start-Modal -->
