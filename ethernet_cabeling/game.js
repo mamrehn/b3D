@@ -5,6 +5,9 @@
 // Level 3: Patchpanel (T568A)
 // ============================================
 
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
 // Level-System
 const LEVELS = {
     1: {
@@ -389,7 +392,7 @@ function initThreeJS() {
     renderer.domElement.style.touchAction = 'none';
 
     // Controls
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.minDistance = isMobile() ? 3 : 5;
