@@ -3776,9 +3776,9 @@ function createLevel4Desk() {
     deskGroup.add(top);
 
     // Tischbeine
-    const legGeometry = new THREE.BoxGeometry(0.15, 1.5, 0.15);
+    const legGeometry = new THREE.BoxGeometry(0.15, 2.25, 0.15);
     const legMaterial = new THREE.MeshStandardMaterial({ color: 0x4a4a4a });
-    const legPositions = [[-5.8, -0.75, -1.3], [5.8, -0.75, -1.3], [-5.8, -0.75, 1.3], [5.8, -0.75, 1.3]];
+    const legPositions = [[-5.8, -1.125, -1.3], [5.8, -1.125, -1.3], [-5.8, -1.125, 1.3], [5.8, -1.125, 1.3]];
     legPositions.forEach(pos => {
         const leg = new THREE.Mesh(legGeometry, legMaterial);
         leg.position.set(...pos);
