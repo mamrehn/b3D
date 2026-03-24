@@ -264,15 +264,7 @@
         </div>
     </div>
 
-    <!-- Three.js r183.2 (ES Modules) -->
-    <link rel="modulepreload"
-          href="https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.min.js"
-          integrity="sha384-TuBaLlXYFzL5/ERE/v+rEu11lpj6LXzYXwrpCkpxQLvJgJKma/O7uaqQOdHW07Yk"
-          crossorigin="anonymous">
-    <link rel="modulepreload"
-          href="https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/controls/OrbitControls.js"
-          integrity="sha384-qwbKZfqvfut7iKUj5OTm9S0ZtyKO8qwf6tgArWhWhvjzpRG9qEN88IL6J8gVOZOx"
-          crossorigin="anonymous">
+    <!-- Three.js r183.2 (ES Modules) — importmap MUST come before modulepreload -->
     <script type="importmap">
     {
         "imports": {
@@ -281,6 +273,14 @@
         }
     }
     </script>
+    <link rel="modulepreload"
+          href="https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.min.js"
+          integrity="sha384-TuBaLlXYFzL5/ERE/v+rEu11lpj6LXzYXwrpCkpxQLvJgJKma/O7uaqQOdHW07Yk"
+          crossorigin="anonymous">
+    <link rel="modulepreload"
+          href="https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/controls/OrbitControls.js"
+          integrity="sha384-qwbKZfqvfut7iKUj5OTm9S0ZtyKO8qwf6tgArWhWhvjzpRG9qEN88IL6J8gVOZOx"
+          crossorigin="anonymous">
     <script type="module" src="game.js"></script>
 </body>
 </html>
