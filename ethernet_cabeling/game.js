@@ -4366,6 +4366,8 @@ function handleLevel4SocketConnect(port, portData) {
     portData.isConnected = true;
     port.material.color = new THREE.Color(0x22aa22);
     gameState.level4.connections[selectedSide].socketConnected = true;
+    gameState.level4.connections[selectedSide].socketPortName = portData.portName;
+    gameState.level4.connections[selectedSide].socketPortMesh = port;
 
     // Prüfen ob auch der PC schon verbunden ist (dann Kabel fertigstellen)
     if (gameState.level4.connections[selectedSide].pcConnected) {
@@ -4384,18 +4386,15 @@ function finishLevel4Cable(side) {
     }
 
     // Verlegtes Kabel als TubeGeometry erstellen
-    const socketPort = level4SocketPorts.find(p => p.userData.isConnected && !level4RoutedCables.some(
-        c => c.userData.socketPortName === p.userData.portName
-    ));
-    const socketPortName = socketPort ? socketPort.userData.portName : 'DD1-1';
-    createLevel4RoutedCable(side, socketPortName);
+    const conn = gameState.level4.connections[side];
+    createLevel4RoutedCable(side, conn.socketPortName);
 
     // Undo-History
     gameState.undoHistory.push({
         type: 'level4Connection',
         side: side,
         pcPort: level4PcPorts.find(p => p.userData.side === side),
-        socketPort: socketPort,
+        socketPort: conn.socketPortMesh,
         cablePickup: cablePickup
     });
 
