@@ -4478,8 +4478,7 @@ function createLevel4Label(parent, text, x, y, z) {
 
     const texture = new THREE.CanvasTexture(canvas);
     const spriteMaterial = new THREE.SpriteMaterial({
-        map: texture,
-        depthTest: false
+        map: texture
     });
     const sprite = new THREE.Sprite(spriteMaterial);
     sprite.position.set(x, y, z);
