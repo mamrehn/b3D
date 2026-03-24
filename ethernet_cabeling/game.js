@@ -3724,11 +3724,8 @@ function createLevel4Scene() {
     // Rechter PC
     createLevel4PC('right', 3.5);
 
-    // Doppeldose an der Wand
-    createLevel4Doppeldose();
-
-    // Verlegekabel in der Wand (Referenz, nicht interaktiv)
-    createLevel4WallCables();
+    // Kabelkanal mit eingebetteter Doppeldose und Verlegekabeln
+    createLevel4Kabelkanal();
 
     // Patchkabel auf dem Tisch
     createLevel4PatchCables();
@@ -3907,33 +3904,90 @@ function createLevel4PC(side, x) {
     updateLevel4Screen(side, 'network');
 }
 
-function createLevel4Doppeldose() {
+function createLevel4Kabelkanal() {
+    // Kabelkanal an der Wand mit eingebetteter Doppeldose (wie in Level 1/2)
+    // Die Doppeldose sitzt im Kanal, Frontseite ragt nach vorne heraus
+    // Orange Verlegekabel laufen im Kanal von der Dose nach rechts zum Serverraum
+
+    const kanalGroup = new THREE.Group();
+
+    const kanalMaterial = new THREE.MeshStandardMaterial({
+        color: 0xf0f0f0,
+        roughness: 0.4
+    });
+
+    // Kabelkanal-Maße — volle Raumbreite (20), ohne Endkappen (offen an beiden Seiten)
+    const kanalWidth = 20;
+    const kanalHeight = 1.2;    // Hoch genug für die Doppeldose
+    const kanalDepth = 0.4;
+    const wallThickness = 0.06;
+
+    // Boden
+    const bodenGeometry = new THREE.BoxGeometry(kanalWidth, wallThickness, kanalDepth);
+    const boden = new THREE.Mesh(bodenGeometry, kanalMaterial);
+    boden.position.set(0, -kanalHeight / 2, 0);
+    kanalGroup.add(boden);
+
+    // Decke
+    const deckeGeometry = new THREE.BoxGeometry(kanalWidth, wallThickness, kanalDepth);
+    const decke = new THREE.Mesh(deckeGeometry, kanalMaterial);
+    decke.position.set(0, kanalHeight / 2, 0);
+    kanalGroup.add(decke);
+
+    // Rückwand (an der Wand)
+    const rueckwandGeometry = new THREE.BoxGeometry(kanalWidth, kanalHeight, wallThickness);
+    const rueckwand = new THREE.Mesh(rueckwandGeometry, kanalMaterial);
+    rueckwand.position.set(0, 0, -kanalDepth / 2 + wallThickness / 2);
+    kanalGroup.add(rueckwand);
+
+    // Vordere Abdeckung LINKS der Dose (von linkem Rand bis zur Dose)
+    const frontLeftWidth = kanalWidth / 2 - 1.0; // von x=-10 bis x=-1.0
+    const frontLeftGeometry = new THREE.BoxGeometry(frontLeftWidth, kanalHeight - 0.02, wallThickness);
+    const frontLeft = new THREE.Mesh(frontLeftGeometry, kanalMaterial);
+    frontLeft.position.set(-kanalWidth / 2 + frontLeftWidth / 2, 0, kanalDepth / 2 - wallThickness / 2);
+    kanalGroup.add(frontLeft);
+
+    // Vordere Abdeckung RECHTS der Dose (von Dose bis rechtem Rand)
+    const frontRightWidth = kanalWidth / 2 - 1.0; // von x=1.0 bis x=10
+    const frontRightGeometry = new THREE.BoxGeometry(frontRightWidth, kanalHeight - 0.02, wallThickness);
+    const frontRight = new THREE.Mesh(frontRightGeometry, kanalMaterial);
+    frontRight.position.set(kanalWidth / 2 - frontRightWidth / 2, 0, kanalDepth / 2 - wallThickness / 2);
+    kanalGroup.add(frontRight);
+
+    // Keine Endkappen — Kanal ist an beiden Seiten offen (Kabel sichtbar)
+
+    // ========== Eingebettete Doppeldose (Frontseite ragt heraus) ==========
     const doseGroup = new THREE.Group();
 
-    // Dosen-Rahmen (Unterputz-Dose)
-    const frameGeometry = new THREE.BoxGeometry(1.6, 1.0, 0.15);
-    const frameMaterial = new THREE.MeshStandardMaterial({
-        color: 0xf0f0f0,
-        roughness: 0.5
+    // Frontplatte der Dose (weiß, ragt aus dem Kanal heraus)
+    const frontPlateGeometry = new THREE.BoxGeometry(1.8, 1.0, 0.12);
+    const frontPlateMaterial = new THREE.MeshStandardMaterial({
+        color: 0xf8f8f8,
+        roughness: 0.4
     });
-    const frame = new THREE.Mesh(frameGeometry, frameMaterial);
-    doseGroup.add(frame);
+    const frontPlate = new THREE.Mesh(frontPlateGeometry, frontPlateMaterial);
+    frontPlate.position.set(0, 0, kanalDepth / 2 + 0.06);
+    doseGroup.add(frontPlate);
 
-    // Innenfläche (leicht vertieft)
-    const innerGeometry = new THREE.BoxGeometry(1.4, 0.8, 0.05);
-    const innerMaterial = new THREE.MeshStandardMaterial({ color: 0xe0e0e0 });
-    const inner = new THREE.Mesh(innerGeometry, innerMaterial);
-    inner.position.z = 0.06;
-    doseGroup.add(inner);
+    // Zierrahmen um die Frontplatte
+    const borderGeometry = new THREE.BoxGeometry(2.0, 1.15, 0.03);
+    const borderMaterial = new THREE.MeshStandardMaterial({
+        color: 0xe8e8e8,
+        roughness: 0.3
+    });
+    const border = new THREE.Mesh(borderGeometry, borderMaterial);
+    border.position.set(0, 0, kanalDepth / 2 - 0.01);
+    doseGroup.add(border);
 
-    // Port DD1-1 (links)
+    // RJ45-Buchse DD1-1 (links) — interaktiver Port
     const portGeometry = new THREE.BoxGeometry(0.3, 0.22, 0.1);
     const portMaterial = new THREE.MeshStandardMaterial({
         color: 0x1a1a1a,
         roughness: 0.7
     });
+
     const port1 = new THREE.Mesh(portGeometry, portMaterial);
-    port1.position.set(-0.4, 0, 0.1);
+    port1.position.set(-0.4, 0, kanalDepth / 2 + 0.13);
     port1.userData = {
         type: 'level4SocketPort',
         portName: 'DD1-1',
@@ -3943,9 +3997,16 @@ function createLevel4Doppeldose() {
     doseGroup.add(port1);
     level4SocketPorts.push(port1);
 
-    // Port DD1-2 (rechts)
+    // RJ45-Buchse Inneres DD1-1 (goldene Kontakte angedeutet)
+    const innerJackGeometry = new THREE.BoxGeometry(0.24, 0.16, 0.06);
+    const innerJackMaterial = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.3 });
+    const innerJack1 = new THREE.Mesh(innerJackGeometry, innerJackMaterial);
+    innerJack1.position.set(-0.4, 0, kanalDepth / 2 + 0.1);
+    doseGroup.add(innerJack1);
+
+    // RJ45-Buchse DD1-2 (rechts) — interaktiver Port
     const port2 = new THREE.Mesh(portGeometry, portMaterial.clone());
-    port2.position.set(0.4, 0, 0.1);
+    port2.position.set(0.4, 0, kanalDepth / 2 + 0.13);
     port2.userData = {
         type: 'level4SocketPort',
         portName: 'DD1-2',
@@ -3955,38 +4016,56 @@ function createLevel4Doppeldose() {
     doseGroup.add(port2);
     level4SocketPorts.push(port2);
 
-    // Port-Labels
-    createLevel4Label(doseGroup, 'DD1-1', -0.4, -0.5, 0.15);
-    createLevel4Label(doseGroup, 'DD1-2', 0.4, -0.5, 0.15);
+    // RJ45-Buchse Inneres DD1-2
+    const innerJack2 = new THREE.Mesh(innerJackGeometry.clone(), innerJackMaterial);
+    innerJack2.position.set(0.4, 0, kanalDepth / 2 + 0.1);
+    doseGroup.add(innerJack2);
 
-    // Dose-Label
-    createLevel4Label(doseGroup, 'Doppeldose (aus Level 2)', 0, 0.8, 0.15);
+    // Port-Labels unter den Buchsen
+    createLevel4Label(doseGroup, 'DD1-1', -0.4, -0.55, kanalDepth / 2 + 0.15);
+    createLevel4Label(doseGroup, 'DD1-2', 0.4, -0.55, kanalDepth / 2 + 0.15);
 
-    doseGroup.position.set(0, 2.5, -1.9);
-    scene.add(doseGroup);
-}
+    // Dose bei x=0 im Kanal (relativ zur kanalGroup)
+    doseGroup.position.set(0, 0, 0);
+    kanalGroup.add(doseGroup);
 
-function createLevel4WallCables() {
-    // Zwei Verlegekabel von der Doppeldose in die Wand (visuell, nicht interaktiv)
-    const cableColor = 0xFF8C00;
+    // ========== Orange Verlegekabel im Kanal ==========
+    // Kabel kommen von rechts (Serverraum/Patchpanel) und führen zur Doppeldose
     const cableMaterial = new THREE.MeshStandardMaterial({
-        color: cableColor,
+        color: 0xFF8C00,
         roughness: 0.6
     });
 
-    [-0.4, 0.4].forEach(portX => {
+    const cableStartX = kanalWidth / 2;  // rechter Rand (offen, Kabel kommen von außen)
+    const cableEndX = 0.5;               // kurz rechts der Dose
+
+    [-0.06, 0.06].forEach(offsetZ => {
         const curve = new THREE.CatmullRomCurve3([
-            new THREE.Vector3(portX, 2.5, -1.9),
-            new THREE.Vector3(portX, 2.5, -1.95),
-            new THREE.Vector3(portX, 3.5, -2.0)
+            new THREE.Vector3(cableStartX, 0, offsetZ),
+            new THREE.Vector3(cableStartX * 0.6, 0.06, offsetZ),
+            new THREE.Vector3(cableStartX * 0.3, -0.04, offsetZ),
+            new THREE.Vector3(cableEndX, 0, offsetZ)
         ]);
-        const tubeGeometry = new THREE.TubeGeometry(curve, 12, 0.04, 8, false);
+        const tubeGeometry = new THREE.TubeGeometry(curve, 32, 0.04, 8, false);
         const cable = new THREE.Mesh(tubeGeometry, cableMaterial);
-        scene.add(cable);
+        kanalGroup.add(cable);
     });
 
-    // Label
-    createLevel4Label(scene, '→ zum Patchpanel (Level 3)', 0, 4.0, -1.8);
+    // ========== Position des gesamten Kabelkanals ==========
+    // Zentriert so, dass die Dose (x=0 im Kanal) bei Welt-x=0 liegt
+    // Kanal geht von Welt-x=-5 bis Welt-x=5
+    kanalGroup.position.set(0, 2.5, -1.85);
+    scene.add(kanalGroup);
+
+    // ========== Labels ==========
+    // Dose-Label über der Frontplatte
+    createLevel4Label(scene, 'Doppeldose (aus Spiel-Level 2)', 0, 3.35, -1.55);
+
+    // Kabelkanal-Label
+    createLevel4Label(scene, 'Kabelkanal (aus Spiel-Level 1)', 0, 3.55, -1.55);
+
+    // "Zum Patchpanel" Label am rechten (fernen) Ende des Kanals
+    createLevel4Label(scene, '→ zum Patchpanel (aus Spiel-Level 3)', kanalWidth / 2 - 0.5, 2.5, -1.55);
 }
 
 function createLevel4PatchCables() {
@@ -4434,7 +4513,7 @@ function createLevel4RoutedCable(side, socketPortName) {
     // Kabelroute: Tower-Rückseite → zur Wand → zur Dose
     // Tower is at y=1.55, port at y offset -0.3, back face z=-0.62
     const startPos = new THREE.Vector3(pcX + towerOffsetX + 0.15, 1.55 - 0.3, -0.62);
-    const endPos = new THREE.Vector3(socketX, 2.5, -1.8);
+    const endPos = new THREE.Vector3(socketX, 2.5, -1.52);
 
     const curve = new THREE.CatmullRomCurve3([
         startPos,
