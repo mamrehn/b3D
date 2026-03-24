@@ -98,7 +98,7 @@ const gameState = {
     // Level 4 Zustand (PC-Vernetzung & Ping)
     level4: {
         selectedCable: null,         // 'left' | 'right' | null
-        cablePhase: 'pickUp',       // 'pickUp' | 'connectPC' | 'connectSocket'
+        cablePhase: 'pickUp',       // 'pickUp' | 'connecting'
         connections: {
             left:  { pcConnected: false, socketConnected: false },
             right: { pcConnected: false, socketConnected: false }
@@ -3836,7 +3836,9 @@ function createLevel4PC(side, x) {
     base.position.y = -1.38;
     monitorGroup.add(base);
 
-    monitorGroup.position.set(0, 2.2, -0.5);
+    // Monitor sits ON the desk (stand base at desk surface ≈ y=0.825)
+    // base offset within group = -1.38, so group y = 0.85 + 1.38 = 2.23
+    monitorGroup.position.set(0, 2.25, -0.5);
     pcGroup.add(monitorGroup);
 
     // === Tower (PC-Gehäuse) ===
@@ -3858,14 +3860,16 @@ function createLevel4PC(side, x) {
     led.position.set(-0.2, 0.5, 0.61);
     towerGroup.add(led);
 
-    // Ethernet-Port (Rückseite des Towers) — interaktiv
-    const portGeometry = new THREE.BoxGeometry(0.25, 0.18, 0.08);
+    // Ethernet-Port (Rückseite des Towers, realistisch) — interaktiv
+    const portGeometry = new THREE.BoxGeometry(0.3, 0.22, 0.1);
     const portMaterial = new THREE.MeshStandardMaterial({
-        color: 0x3a3a3a,
-        roughness: 0.7
+        color: 0xdd8800,
+        roughness: 0.5,
+        emissive: new THREE.Color(0x664400),
+        emissiveIntensity: 0.5
     });
     const ethernetPort = new THREE.Mesh(portGeometry, portMaterial);
-    ethernetPort.position.set(0.15, -0.3, -0.61);
+    ethernetPort.position.set(0.15, -0.3, -0.62);
     ethernetPort.userData = {
         type: 'level4PcPort',
         side: side,
@@ -3875,10 +3879,11 @@ function createLevel4PC(side, x) {
     towerGroup.add(ethernetPort);
     level4PcPorts.push(ethernetPort);
 
-    // Port-Label
-    createLevel4Label(towerGroup, 'LAN', 0.15, -0.1, -0.65);
+    // Port-Label (hinter dem Tower, zeigt auf den Port)
+    createLevel4Label(towerGroup, 'LAN-Port ▲', 0.15, -0.65, -0.75);
 
-    towerGroup.position.set(sideSign * 1.8, 0.85, 0);
+    // Tower sits ON the desk (desk surface ≈ y=0.825)
+    towerGroup.position.set(sideSign * 1.8, 1.55, 0);
     pcGroup.add(towerGroup);
 
     // === Tastatur ===
@@ -3888,11 +3893,12 @@ function createLevel4PC(side, x) {
         roughness: 0.5
     });
     const keyboard = new THREE.Mesh(kbGeometry, kbMaterial);
-    keyboard.position.set(0, 0.85, 0.8);
+    // Keyboard sits ON desk surface (0.825 + half thickness 0.025)
+    keyboard.position.set(0, 0.86, 0.8);
     pcGroup.add(keyboard);
 
     // PC-Label über dem Monitor
-    createLevel4Label(pcGroup, side === 'left' ? 'PC 1 (192.168.1.1)' : 'PC 2 (192.168.1.2)', 0, 3.3, -0.5);
+    createLevel4Label(pcGroup, side === 'left' ? 'PC 1 (192.168.1.1)' : 'PC 2 (192.168.1.2)', 0, 3.4, -0.5);
 
     pcGroup.position.set(x, 0, 0);
     scene.add(pcGroup);
@@ -3986,8 +3992,8 @@ function createLevel4WallCables() {
 function createLevel4PatchCables() {
     // Zwei Patchkabel auf dem Tisch, eines pro PC-Seite
     const cableData = [
-        { side: 'left', x: -2.5, color: 0x4488ff },
-        { side: 'right', x: 2.5, color: 0x44bb44 }
+        { side: 'left', x: -2.5, color: 0xB0B0B0 },
+        { side: 'right', x: 2.5, color: 0xB0B0B0 }
     ];
 
     cableData.forEach(data => {
@@ -4018,7 +4024,8 @@ function createLevel4PatchCables() {
         plug2.position.set(0.3, 0, 0.05);
         cableGroup.add(plug2);
 
-        cableGroup.position.set(data.x, 0.85, 1.0);
+        // Cable sits ON desk surface (≈ 0.86)
+        cableGroup.position.set(data.x, 0.9, 1.0);
         cableGroup.userData = {
             type: 'level4Cable',
             side: data.side,
@@ -4060,7 +4067,7 @@ function createLevel4Label(parent, text, x, y, z) {
 // Level 4: Bildschirm-Texturen
 // ============================================
 
-function updateLevel4Screen(side, state) {
+function updateLevel4Screen(side, state, terminalLines) {
     const canvas = level4ScreenCanvases[side];
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -4075,7 +4082,7 @@ function updateLevel4Screen(side, state) {
     } else if (state === 'connected') {
         drawLevel4NetworkDiagram(ctx, w, h, true);
     } else if (state === 'terminal') {
-        drawLevel4Terminal(ctx, w, h);
+        drawLevel4Terminal(ctx, w, h, terminalLines || []);
     }
 
     // Textur aktualisieren
@@ -4173,7 +4180,7 @@ function drawLevel4NetworkDiagram(ctx, w, h, connected) {
     }
 }
 
-function drawLevel4Terminal(ctx, w, h) {
+function drawLevel4Terminal(ctx, w, h, lines) {
     // Terminal-Hintergrund
     ctx.fillStyle = '#0c0c0c';
     ctx.fillRect(0, 0, w, h);
@@ -4186,11 +4193,35 @@ function drawLevel4Terminal(ctx, w, h) {
     ctx.textAlign = 'left';
     ctx.fillText('  Eingabeaufforderung', 5, 15);
 
-    // Cursor-Prompt
-    ctx.fillStyle = '#cccccc';
-    ctx.font = '13px Courier New, monospace';
-    ctx.fillText('C:\\> ping 192.168.1.2', 10, 50);
-    ctx.fillText('_', 250, 50);
+    // Terminal-Zeilen rendern
+    const lineHeight = 18;
+    const startY = 42;
+    const fontSize = 12;
+    ctx.font = `${fontSize}px Courier New, monospace`;
+
+    (lines || []).forEach((line, i) => {
+        const y = startY + i * lineHeight;
+        if (y > h - 10) return; // Nicht über den Bildschirm hinaus
+
+        if (line.cls === 'prompt') {
+            ctx.fillStyle = '#cccccc';
+        } else if (line.cls === 'reply') {
+            ctx.fillStyle = '#00ff41';
+        } else if (line.cls === 'stats') {
+            ctx.fillStyle = '#ffaa00';
+        } else if (line.cls === 'info') {
+            ctx.fillStyle = '#88aaff';
+        } else {
+            ctx.fillStyle = '#cccccc';
+        }
+        ctx.fillText(line.text || '', 10, y);
+    });
+
+    // Blinkender Cursor am Ende
+    if (!lines || lines.length === 0) {
+        ctx.fillStyle = '#cccccc';
+        ctx.fillText('C:\\> _', 10, startY);
+    }
 }
 
 // ============================================
@@ -4238,19 +4269,12 @@ function handleLevel4Click() {
         if (objData.type === 'level4Cable') {
             handleLevel4CablePickup(clickedObj, objData);
         }
-    } else if (state.cablePhase === 'connectPC') {
-        // Phase 2: Am PC-Port anschließen
+    } else if (state.cablePhase === 'connecting') {
+        // Phase 2: Kabel an PC oder Dose anschließen (beliebige Reihenfolge)
         if (objData.type === 'level4PcPort') {
             handleLevel4PCConnect(clickedObj, objData);
-        } else {
-            showFeedback('Stecke das Kabel zuerst in den Ethernet-Port des PCs!', 'warning');
-        }
-    } else if (state.cablePhase === 'connectSocket') {
-        // Phase 3: An der Doppeldose anschließen
-        if (objData.type === 'level4SocketPort') {
+        } else if (objData.type === 'level4SocketPort') {
             handleLevel4SocketConnect(clickedObj, objData);
-        } else {
-            showFeedback('Stecke das andere Ende in einen Port der Doppeldose!', 'warning');
         }
     }
 }
@@ -4266,7 +4290,7 @@ function handleLevel4CablePickup(cable, data) {
     }
 
     gameState.level4.selectedCable = side;
-    gameState.level4.cablePhase = 'connectPC';
+    gameState.level4.cablePhase = 'connecting';
 
     // Kabel hervorheben
     cable.traverse(child => {
@@ -4276,7 +4300,7 @@ function handleLevel4CablePickup(cable, data) {
         }
     });
 
-    showFeedback(`Patchkabel aufgenommen — verbinde es mit ${side === 'left' ? 'PC 1' : 'PC 2'}!`, 'info');
+    showFeedback(`Patchkabel aufgenommen — verbinde PC und Doppeldose!`, 'info');
     updateLevel4Progress();
 }
 
@@ -4298,10 +4322,14 @@ function handleLevel4PCConnect(port, portData) {
     portData.isConnected = true;
     port.material.color = new THREE.Color(0x22aa22);
     gameState.level4.connections[selectedSide].pcConnected = true;
-    gameState.level4.cablePhase = 'connectSocket';
 
-    showFeedback(`Am ${portData.label} eingesteckt — jetzt zur Doppeldose!`, 'success');
-    updateLevel4Progress();
+    // Prüfen ob auch die Dose schon verbunden ist (dann Kabel fertigstellen)
+    if (gameState.level4.connections[selectedSide].socketConnected) {
+        finishLevel4Cable(selectedSide);
+    } else {
+        showFeedback(`Am ${portData.label} eingesteckt — jetzt zur Doppeldose!`, 'success');
+        updateLevel4Progress();
+    }
 }
 
 function handleLevel4SocketConnect(port, portData) {
@@ -4317,21 +4345,35 @@ function handleLevel4SocketConnect(port, portData) {
     port.material.color = new THREE.Color(0x22aa22);
     gameState.level4.connections[selectedSide].socketConnected = true;
 
+    // Prüfen ob auch der PC schon verbunden ist (dann Kabel fertigstellen)
+    if (gameState.level4.connections[selectedSide].pcConnected) {
+        finishLevel4Cable(selectedSide);
+    } else {
+        showFeedback(`${portData.portName} eingesteckt — jetzt zum PC!`, 'success');
+        updateLevel4Progress();
+    }
+}
+
+function finishLevel4Cable(side) {
     // Kabel-Highlight entfernen & Kabel auf dem Tisch ausblenden
-    const cablePickup = level4CablePickups.find(c => c.userData.side === selectedSide);
+    const cablePickup = level4CablePickups.find(c => c.userData.side === side);
     if (cablePickup) {
         cablePickup.visible = false;
     }
 
     // Verlegtes Kabel als TubeGeometry erstellen
-    createLevel4RoutedCable(selectedSide, portData.portName);
+    const socketPort = level4SocketPorts.find(p => p.userData.isConnected && !level4RoutedCables.some(
+        c => c.userData.socketPortName === p.userData.portName
+    ));
+    const socketPortName = socketPort ? socketPort.userData.portName : 'DD1-1';
+    createLevel4RoutedCable(side, socketPortName);
 
     // Undo-History
     gameState.undoHistory.push({
         type: 'level4Connection',
-        side: selectedSide,
-        pcPort: level4PcPorts.find(p => p.userData.side === selectedSide),
-        socketPort: port,
+        side: side,
+        pcPort: level4PcPorts.find(p => p.userData.side === side),
+        socketPort: socketPort,
         cablePickup: cablePickup
     });
 
@@ -4339,7 +4381,7 @@ function handleLevel4SocketConnect(port, portData) {
     gameState.level4.selectedCable = null;
     gameState.level4.cablePhase = 'pickUp';
 
-    showFeedback(`${portData.portName} verbunden!`, 'success');
+    showFeedback(`Kabel verbunden!`, 'success');
 
     // Prüfen ob beide PCs verbunden
     checkLevel4Connectivity();
@@ -4350,18 +4392,18 @@ function createLevel4RoutedCable(side, socketPortName) {
     const pcX = side === 'left' ? -3.5 : 3.5;
     const towerOffsetX = side === 'left' ? 1.8 : -1.8;
     const socketX = socketPortName === 'DD1-1' ? -0.4 : 0.4;
-    const cableColor = side === 'left' ? 0x4488ff : 0x44bb44;
+    const cableColor = 0xB0B0B0;  // Gleiche Farbe wie Patchkabel in Level 3
 
-    // Kabelroute: PC-Rückseite → runter → entlang Wand → hoch zur Dose
-    const startPos = new THREE.Vector3(pcX + towerOffsetX + 0.15, 0.85 + 0.55, -0.61);
+    // Kabelroute: Tower-Rückseite → zur Wand → zur Dose
+    // Tower is at y=1.55, port at y offset -0.3, back face z=-0.62
+    const startPos = new THREE.Vector3(pcX + towerOffsetX + 0.15, 1.55 - 0.3, -0.62);
     const endPos = new THREE.Vector3(socketX, 2.5, -1.8);
 
     const curve = new THREE.CatmullRomCurve3([
         startPos,
-        new THREE.Vector3(startPos.x, startPos.y, startPos.z - 0.3),
-        new THREE.Vector3(startPos.x, -0.5, -1.0),
-        new THREE.Vector3(endPos.x, -0.5, -1.5),
-        new THREE.Vector3(endPos.x, endPos.y - 0.5, -1.8),
+        new THREE.Vector3(startPos.x, startPos.y, -1.0),
+        new THREE.Vector3(startPos.x, startPos.y - 0.3, -1.5),
+        new THREE.Vector3(endPos.x, endPos.y - 0.3, -1.6),
         endPos
     ]);
 
@@ -4406,34 +4448,34 @@ function startLevel4Ping() {
     if (gameState.level4.pingStarted) return;
     gameState.level4.pingStarted = true;
 
-    // Linken Bildschirm auf Terminal umschalten
-    updateLevel4Screen('left', 'terminal');
+    // Linken Bildschirm auf Terminal umschalten (leer, mit Cursor)
+    updateLevel4Screen('left', 'terminal', []);
 
-    const terminalEl = document.getElementById('level4-terminal-output');
-    if (!terminalEl) return;
-
-    const lines = [
+    // Ping-Zeilen nacheinander auf den Bildschirm rendern
+    const allLines = [
         { text: 'C:\\> ping 192.168.1.2', cls: 'prompt', delay: 0 },
         { text: '', cls: '', delay: 500 },
-        { text: 'Ping wird ausgeführt für 192.168.1.2 mit 32 Bytes Daten:', cls: 'info', delay: 800 },
-        { text: 'Antwort von 192.168.1.2: Bytes=32 Zeit<1ms TTL=128', cls: 'reply', delay: 1600 },
-        { text: 'Antwort von 192.168.1.2: Bytes=32 Zeit<1ms TTL=128', cls: 'reply', delay: 2400 },
-        { text: 'Antwort von 192.168.1.2: Bytes=32 Zeit<1ms TTL=128', cls: 'reply', delay: 3200 },
-        { text: 'Antwort von 192.168.1.2: Bytes=32 Zeit<1ms TTL=128', cls: 'reply', delay: 4000 },
+        { text: 'Ping: 192.168.1.2 (32 Bytes):', cls: 'info', delay: 800 },
+        { text: 'Antwort: Bytes=32 Zeit<1ms TTL=128', cls: 'reply', delay: 1600 },
+        { text: 'Antwort: Bytes=32 Zeit<1ms TTL=128', cls: 'reply', delay: 2400 },
+        { text: 'Antwort: Bytes=32 Zeit<1ms TTL=128', cls: 'reply', delay: 3200 },
+        { text: 'Antwort: Bytes=32 Zeit<1ms TTL=128', cls: 'reply', delay: 4000 },
         { text: '', cls: '', delay: 4500 },
-        { text: 'Ping-Statistik für 192.168.1.2:', cls: 'stats', delay: 4800 },
-        { text: '    Pakete: Gesendet = 4, Empfangen = 4, Verloren = 0 (0% Verlust)', cls: 'stats', delay: 5200 }
+        { text: 'Statistik 192.168.1.2:', cls: 'stats', delay: 4800 },
+        { text: '  Gesendet=4 Empfangen=4 (0% Verlust)', cls: 'stats', delay: 5200 }
     ];
 
-    lines.forEach(line => {
+    const visibleLines = [];
+
+    allLines.forEach(line => {
         setTimeout(() => {
-            const lineEl = document.createElement('div');
-            lineEl.className = line.cls;
-            lineEl.textContent = line.text || '\u00A0';
-            terminalEl.appendChild(lineEl);
-            terminalEl.scrollTop = terminalEl.scrollHeight;
+            visibleLines.push(line);
+            updateLevel4Screen('left', 'terminal', visibleLines);
         }, line.delay);
     });
+
+    // Sidebar-Status aktualisieren
+    updateLevel4Progress();
 
     // Nach Ping fertig: Level abschließen
     setTimeout(() => {
@@ -4447,7 +4489,7 @@ function startLevel4Ping() {
         }
 
         showFeedback('Ping erfolgreich! Prüfe jetzt dein Ergebnis.', 'success');
-        updateLevel4Progress();
+        updateLevel4UI();
     }, 5800);
 }
 
@@ -4479,22 +4521,23 @@ function updateLevel4UI() {
         `;
         cableCoresContainer.appendChild(instructionsDiv);
     } else {
-        // Phase 2: Ping-Terminal
-        const terminalDiv = document.createElement('div');
-        terminalDiv.className = 'level4-instructions';
-        terminalDiv.innerHTML = `
+        // Phase 2: Ping starten (Ausgabe erscheint auf dem PC-Bildschirm)
+        const pingDiv = document.createElement('div');
+        pingDiv.className = 'level4-instructions';
+        pingDiv.innerHTML = `
             <p class="panel-description"><strong>Ping-Test durchführen:</strong></p>
-            <p class="hint-text">Teste ob PC 1 den PC 2 über das Netzwerk erreichen kann.</p>
-            <div id="level4-terminal" class="ping-terminal">
-                <div id="level4-terminal-output"></div>
-            </div>
+            <p class="hint-text">Teste ob PC 1 den PC 2 über das Netzwerk erreichen kann. Die Ausgabe erscheint auf dem Bildschirm von PC 1.</p>
             ${!gameState.level4.pingStarted ? `
-                <button id="ping-btn" class="btn btn-primary" style="margin-top: 0.5rem; width: 100%;">
+                <button id="ping-btn" class="btn btn-primary" style="margin-top: 0.75rem; width: 100%;">
                     ▶ ping 192.168.1.2
                 </button>
-            ` : ''}
+            ` : gameState.level4.pingComplete ? `
+                <p style="margin-top: 0.5rem; color: var(--success-color);">✅ Ping erfolgreich! Prüfe dein Ergebnis.</p>
+            ` : `
+                <p style="margin-top: 0.5rem; color: var(--warning-color);">⏳ Ping läuft... sieh auf den Bildschirm von PC 1</p>
+            `}
         `;
-        cableCoresContainer.appendChild(terminalDiv);
+        cableCoresContainer.appendChild(pingDiv);
 
         // Ping-Button Event Listener
         const pingBtn = document.getElementById('ping-btn');
@@ -4678,7 +4721,7 @@ function showLevel4Result(success, score) {
             </p>
         `;
 
-        retryBtn.textContent = '🔄 Alle Level wiederholen';
+        retryBtn.textContent = '📋 Zur Level-Auswahl';
         retryBtn.onclick = () => {
             modal.classList.add('hidden');
             gameState.levelScores = {
@@ -4687,7 +4730,7 @@ function showLevel4Result(success, score) {
                 3: { score: 0, time: 0, completed: false },
                 4: { score: 0, time: 0, completed: false }
             };
-            selectLevel(1);
+            goToLevelSelect();
         };
     } else {
         titleEl.textContent = '❌ Noch nicht fertig';
