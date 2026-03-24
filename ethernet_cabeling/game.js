@@ -3736,28 +3736,346 @@ function createLevel4Scene() {
 }
 
 function createLevel4Room() {
-    // Boden
-    const floorGeometry = new THREE.PlaneGeometry(20, 15);
-    const floorMaterial = new THREE.MeshStandardMaterial({
-        color: 0x8B7355,
-        roughness: 0.8
-    });
-    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    // Wand-Konstanten (Wand hat Dicke)
+    const wallThick = 0.3;
+    const wallZ = -2;              // Mitte der Wand
+    const wallFront = wallZ + wallThick / 2;   // -1.85 (Büro-Seite)
+    const wallBack = wallZ - wallThick / 2;    // -2.15 (Technikraum-Seite)
+
+    // Boden (Büro-Seite): von Wand-Front nach vorne
+    const bueroFloorDepth = 12;
+    const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(20, bueroFloorDepth),
+        new THREE.MeshStandardMaterial({ color: 0x8B7355, roughness: 0.8 })
+    );
     floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -1.5;
+    floor.position.set(0, -1.5, wallFront + bueroFloorDepth / 2);
     floor.receiveShadow = true;
     scene.add(floor);
 
-    // Rückwand
-    const wallGeometry = new THREE.PlaneGeometry(20, 10);
+    // Boden (Technikraum-Seite): von Wand-Back nach hinten
+    const techFloorDepth = 8;
+    const techFloor = new THREE.Mesh(
+        new THREE.PlaneGeometry(20, techFloorDepth),
+        new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.9 })
+    );
+    techFloor.rotation.x = -Math.PI / 2;
+    techFloor.position.set(0, -1.5, wallBack - techFloorDepth / 2);
+    scene.add(techFloor);
+
+    // Rückwand (Box mit Dicke)
+    const wallGeometry = new THREE.BoxGeometry(20, 10, wallThick);
     const wallMaterial = new THREE.MeshStandardMaterial({
         color: 0xe8e0d0,
         roughness: 0.9
     });
     const backWall = new THREE.Mesh(wallGeometry, wallMaterial);
-    backWall.position.set(0, 3.5, -2);
+    backWall.position.set(0, 3.5, wallZ);
     backWall.receiveShadow = true;
     scene.add(backWall);
+
+    // Wanddurchbruch (visuell): dunkles Rechteck am rechten Rand wo Kabel durchgehen
+    const durchbruchWidth = 0.8;
+    const durchbruchHeight = 0.6;
+    const durchbruchX = 8;  // nahe rechtem Rand
+    const durchbruchY = 2.5; // gleiche Höhe wie Kabelkanal
+    const durchbruchMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.9 });
+
+    // Vorderseite (Büro)
+    const durchbruchFront = new THREE.Mesh(
+        new THREE.PlaneGeometry(durchbruchWidth, durchbruchHeight),
+        durchbruchMaterial
+    );
+    durchbruchFront.position.set(durchbruchX, durchbruchY, wallFront + 0.01);
+    scene.add(durchbruchFront);
+
+    // Rückseite (Technikraum)
+    const durchbruchBack = new THREE.Mesh(
+        new THREE.PlaneGeometry(durchbruchWidth, durchbruchHeight),
+        durchbruchMaterial
+    );
+    durchbruchBack.position.set(durchbruchX, durchbruchY, wallBack - 0.01);
+    durchbruchBack.rotation.y = Math.PI;
+    scene.add(durchbruchBack);
+
+    // Technikraum-Schild
+    createLevel4Label(scene, 'Technikraum', 0, 7.0, wallBack - 0.2);
+
+    // 19" Rack mit Patchpanel und Switches
+    createLevel4TechnikRack(wallBack);
+
+    // Technikraum-Kabelkanal mit 4 Verlegekabeln
+    createLevel4TechnikKabelkanal(wallBack, durchbruchX, durchbruchY);
+}
+
+function createLevel4TechnikRack(wallBack) {
+    // Vereinfachtes 19" Rack auf der Rückseite der Wand (Technikraum)
+    const rackGroup = new THREE.Group();
+
+    const rackWidth = 5;
+    const rackHeight = 6;
+    const rackDepth = 1.5;
+
+    // Rack-Rahmen (schwarz)
+    const frameMaterial = new THREE.MeshStandardMaterial({
+        color: 0x1a1a1a, roughness: 0.5, metalness: 0.3
+    });
+
+    // Vertikale Pfosten
+    const postGeometry = new THREE.BoxGeometry(0.2, rackHeight, 0.2);
+    [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([sx, sz]) => {
+        const post = new THREE.Mesh(postGeometry, frameMaterial);
+        post.position.set(sx * (rackWidth / 2 - 0.1), 0, sz * (rackDepth / 2 - 0.1));
+        rackGroup.add(post);
+    });
+
+    // Oberer und unterer Rahmen
+    const frameGeometry = new THREE.BoxGeometry(rackWidth, 0.15, rackDepth);
+    [rackHeight / 2, -rackHeight / 2].forEach(y => {
+        const frame = new THREE.Mesh(frameGeometry, frameMaterial);
+        frame.position.y = y;
+        rackGroup.add(frame);
+    });
+
+    // Rückwand des Racks
+    const backPanel = new THREE.Mesh(
+        new THREE.PlaneGeometry(rackWidth - 0.4, rackHeight - 0.3),
+        new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.9, side: THREE.DoubleSide })
+    );
+    backPanel.position.z = -rackDepth / 2 + 0.15;
+    rackGroup.add(backPanel);
+
+    // === Patchpanel (oben im Rack) ===
+    const ppGroup = new THREE.Group();
+    const ppWidth = 4.5;
+    const ppHeight = 0.5;
+    const ppDepth = 0.3;
+
+    // Gehäuse
+    ppGroup.add(new THREE.Mesh(
+        new THREE.BoxGeometry(ppWidth, ppHeight, ppDepth),
+        new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.6, metalness: 0.2 })
+    ));
+
+    // 24 Ports (kleine schwarze Rechtecke, alle "verbunden" = grün markiert)
+    const ppPortSpacing = (ppWidth - 0.6) / 23;
+    for (let i = 0; i < 24; i++) {
+        const portX = -ppWidth / 2 + 0.3 + i * ppPortSpacing;
+        const port = new THREE.Mesh(
+            new THREE.BoxGeometry(0.12, 0.1, 0.08),
+            new THREE.MeshStandardMaterial({ color: 0x22aa22, roughness: 0.5 })
+        );
+        port.position.set(portX, 0, ppDepth / 2 + 0.04);
+        ppGroup.add(port);
+    }
+
+    // Label-Streifen
+    ppGroup.add((() => {
+        const strip = new THREE.Mesh(
+            new THREE.BoxGeometry(ppWidth - 0.2, 0.08, 0.03),
+            new THREE.MeshStandardMaterial({ color: 0xffffff })
+        );
+        strip.position.set(0, ppHeight / 2 - 0.08, ppDepth / 2 + 0.02);
+        return strip;
+    })());
+
+    ppGroup.position.set(0, 1.5, rackDepth / 2 - 0.2);
+    rackGroup.add(ppGroup);
+    createLevel4Label(rackGroup, 'Patchpanel 24-Port (aus Spiel-Level 3)', 0, 2.2, rackDepth / 2);
+
+    // === Switch Büro 1 (Mitte) ===
+    createLevel4RackSwitch(rackGroup, 0, 0.3, rackDepth / 2 - 0.2, 0x1e3a5f, 'Switch Büro 1');
+
+    // === Switch Büro 2 (unten) ===
+    createLevel4RackSwitch(rackGroup, 0, -0.9, rackDepth / 2 - 0.2, 0x3f1e5f, 'Switch Büro 2');
+
+    // Patchkabel zwischen Patchpanel und Switches (grau, fertig verkabelt)
+    const patchCableMaterial = new THREE.MeshStandardMaterial({ color: 0xB0B0B0, roughness: 0.5 });
+    // 12 Kabel von Patchpanel zu Switch 1
+    for (let i = 0; i < 12; i++) {
+        const portX = -ppWidth / 2 + 0.3 + i * ppPortSpacing;
+        const switchPortX = -3.0 / 2 + 0.25 + i * (3.0 / 11);
+        const curve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(portX, 1.5, rackDepth / 2 - 0.05),
+            new THREE.Vector3(portX, 1.2, rackDepth / 2 + 0.2),
+            new THREE.Vector3(switchPortX, 0.6, rackDepth / 2 + 0.2),
+            new THREE.Vector3(switchPortX, 0.3, rackDepth / 2 - 0.05)
+        ]);
+        rackGroup.add(new THREE.Mesh(
+            new THREE.TubeGeometry(curve, 12, 0.02, 6, false), patchCableMaterial
+        ));
+    }
+    // 12 Kabel von Patchpanel zu Switch 2
+    for (let i = 0; i < 12; i++) {
+        const portX = -ppWidth / 2 + 0.3 + (i + 12) * ppPortSpacing;
+        const switchPortX = -3.0 / 2 + 0.25 + i * (3.0 / 11);
+        const curve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(portX, 1.5, rackDepth / 2 - 0.05),
+            new THREE.Vector3(portX, 1.0, rackDepth / 2 + 0.3),
+            new THREE.Vector3(switchPortX, -0.3, rackDepth / 2 + 0.3),
+            new THREE.Vector3(switchPortX, -0.9, rackDepth / 2 - 0.05)
+        ]);
+        rackGroup.add(new THREE.Mesh(
+            new THREE.TubeGeometry(curve, 12, 0.02, 6, false), patchCableMaterial
+        ));
+    }
+
+    // Rack-Label
+    createLevel4Label(rackGroup, '19" Rack', 0, rackHeight / 2 + 0.5, rackDepth / 2);
+
+    // Position: hinter der Wand, Rack-Front zeigt Richtung Wand
+    rackGroup.position.set(0, 1.5, wallBack - 2);
+    rackGroup.rotation.y = Math.PI;  // Front zeigt zur Wand (Kabelkanal-Seite)
+    scene.add(rackGroup);
+
+    // Beleuchtung für den Technikraum
+    const techLight = new THREE.PointLight(0xccddff, 0.8, 15);
+    techLight.position.set(0, 5, wallBack - 2);
+    scene.add(techLight);
+}
+
+function createLevel4RackSwitch(parent, x, y, z, color, name) {
+    const switchGroup = new THREE.Group();
+    const switchWidth = 3.5;
+    const switchHeight = 0.45;
+    const switchDepth = 0.35;
+
+    // Gehäuse
+    switchGroup.add(new THREE.Mesh(
+        new THREE.BoxGeometry(switchWidth, switchHeight, switchDepth),
+        new THREE.MeshStandardMaterial({ color: color, roughness: 0.5, metalness: 0.3 })
+    ));
+
+    // Status-LEDs
+    [0x22ff22, 0x22ff22, 0xffaa00].forEach((c, i) => {
+        const led = new THREE.Mesh(
+            new THREE.CircleGeometry(0.02, 12),
+            new THREE.MeshBasicMaterial({ color: c })
+        );
+        led.position.set(-switchWidth / 2 + 0.12 + i * 0.08, switchHeight / 2 - 0.08, switchDepth / 2 + 0.01);
+        switchGroup.add(led);
+    });
+
+    // 16 Ports (erste 12 grün = verbunden mit Patchpanel, letzte 4 dunkel = frei)
+    const portSpacing = (switchWidth - 0.6) / 15;
+    for (let i = 0; i < 16; i++) {
+        const port = new THREE.Mesh(
+            new THREE.BoxGeometry(0.12, 0.1, 0.08),
+            new THREE.MeshStandardMaterial({ color: i < 12 ? 0x22aa22 : 0x1a1a1a, roughness: 0.5 })
+        );
+        port.position.set(-switchWidth / 2 + 0.3 + i * portSpacing, -0.03, switchDepth / 2 + 0.04);
+        switchGroup.add(port);
+    }
+
+    // Label
+    createLevel4Label(switchGroup, name, 0, switchHeight / 2 + 0.3, switchDepth / 2);
+
+    switchGroup.position.set(x, y, z);
+    parent.add(switchGroup);
+}
+
+function createLevel4TechnikKabelkanal(wallBack, durchbruchX, durchbruchY) {
+    // Kabelkanal im Technikraum: von Wanddurchbruch nach links zum Rack
+    // 4 orange Verlegekabel laufen darin vom Durchbruch zum Patchpanel
+    const kanalGroup = new THREE.Group();
+
+    const kanalMaterial = new THREE.MeshStandardMaterial({
+        color: 0xf0f0f0, roughness: 0.4
+    });
+
+    const kanalWidth = 20;
+    const kanalHeight = 0.8;
+    const kanalDepth = 0.4;
+    const wt = 0.06;
+
+    // Boden
+    kanalGroup.add((() => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(kanalWidth, wt, kanalDepth), kanalMaterial);
+        m.position.set(0, -kanalHeight / 2, 0);
+        return m;
+    })());
+
+    // Decke
+    kanalGroup.add((() => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(kanalWidth, wt, kanalDepth), kanalMaterial);
+        m.position.set(0, kanalHeight / 2, 0);
+        return m;
+    })());
+
+    // Rückwand (an der Technikraum-Wand)
+    kanalGroup.add((() => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(kanalWidth, kanalHeight, wt), kanalMaterial);
+        m.position.set(0, 0, -kanalDepth / 2 + wt / 2);
+        return m;
+    })());
+
+    // Vordere Abdeckung (durchgängig, kein Dosen-Ausschnitt nötig)
+    kanalGroup.add((() => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(kanalWidth, kanalHeight - 0.02, wt), kanalMaterial);
+        m.position.set(0, 0, kanalDepth / 2 - wt / 2);
+        return m;
+    })());
+
+    // Keine Endkappen — offen an beiden Seiten
+
+    // 4 orange Verlegekabel im Kanal
+    // Kommen vom Wanddurchbruch (rechte Seite) und laufen nach links Richtung Rack (x=0)
+    const cableMaterial = new THREE.MeshStandardMaterial({ color: 0xFF8C00, roughness: 0.6 });
+    const cableRightX = durchbruchX;   // wo die Kabel aus der Wand kommen (lokal)
+    const cableLeftX = -2;             // enden kurz vor der Stelle wo sie nach unten zum Rack gehen
+
+    for (let i = 0; i < 4; i++) {
+        const yOff = -0.2 + i * 0.1;
+        const zOff = (i % 2 === 0 ? -0.06 : 0.06);
+        const curve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(cableRightX, yOff, zOff),
+            new THREE.Vector3(cableRightX * 0.6, yOff + 0.04, zOff),
+            new THREE.Vector3(cableRightX * 0.2, yOff - 0.02, zOff),
+            new THREE.Vector3(cableLeftX, yOff, zOff)
+        ]);
+        kanalGroup.add(new THREE.Mesh(
+            new THREE.TubeGeometry(curve, 24, 0.03, 6, false), cableMaterial
+        ));
+    }
+
+    // Position: Rückseite des Kanals berührt die Wandrückseite
+    // kanalDepth=0.4, Rückwand lokal bei z=-0.17, Gruppe z = wallBack - 0.17...
+    // Einfacher: Kanalmitte bei wallBack - kanalDepth/2
+    kanalGroup.position.set(0, durchbruchY, wallBack - kanalDepth / 2);
+    scene.add(kanalGroup);
+
+    // Kabel vom Kabelkanal-Ausgang (links) herunter zum Patchpanel
+    // Rack ist bei (0, 1.5, wallBack-2), rotiert um PI, PP bei rackLocalY=1.5
+    // In Weltkoords: Rack-Front (nach PI-Rotation) zeigt Richtung +z, PP-Front bei z = wallBack-2 + rackDepth/2
+    const rackZ = wallBack - 2;
+    const ppWorldY = 1.5 + 1.5;  // rackGroup.y + ppGroup.y = 1.5 + 1.5 = 3.0
+    const ppWorldZ = rackZ + 0.75 - 0.2;  // nach PI-Rotation: rackDepth/2 = 0.75, ppGroup.z offset
+    const ppWidth = 4.5;
+    const ppPortSpacing = (ppWidth - 0.6) / 23;
+    const kanalExitY = durchbruchY;
+    const kanalExitZ = wallBack - kanalDepth;
+
+    for (let i = 0; i < 4; i++) {
+        // PP-Port X: nach PI-Rotation wird X gespiegelt
+        const localPortX = -ppWidth / 2 + 0.3 + i * ppPortSpacing;
+        const worldPortX = -localPortX;  // PI-Rotation spiegelt X
+
+        const startX = cableLeftX;
+        const startY = kanalExitY + (-0.2 + i * 0.1);
+
+        const curve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(startX, startY, kanalExitZ),
+            new THREE.Vector3(startX - 0.5, startY - 0.3, kanalExitZ - 0.3),
+            new THREE.Vector3(worldPortX, ppWorldY + 0.5, ppWorldZ + 0.5),
+            new THREE.Vector3(worldPortX, ppWorldY, ppWorldZ)
+        ]);
+        scene.add(new THREE.Mesh(
+            new THREE.TubeGeometry(curve, 20, 0.03, 6, false), cableMaterial
+        ));
+    }
+
+    // Label
+    createLevel4Label(scene, 'Kabelkanal (aus Spiel-Level 1)', 0, durchbruchY + 0.7, wallBack - kanalDepth / 2);
 }
 
 function createLevel4Desk() {
@@ -4077,14 +4395,16 @@ function createLevel4Kabelkanal() {
     });
 
     // ========== Position des Kabelkanals ==========
-    kanalGroup.position.set(0, 2.5, -1.85);
+    // Rückwand des Kanals berührt die Wandvorderseite (z=-1.85)
+    // kanalDepth=0.4, Rückwand lokal bei z=-0.17, also Gruppe bei z = -1.85 + 0.17 = -1.68
+    kanalGroup.position.set(0, 2.5, -1.65);
     scene.add(kanalGroup);
 
     // ========== Labels ==========
-    createLevel4Label(scene, 'Kabelkanal (aus Spiel-Level 1)', 0, 3.45, -1.55);
+    createLevel4Label(scene, 'Kabelkanal (aus Spiel-Level 1)', 0, 3.45, -1.35);
 
     // "Zum Patchpanel" am rechten offenen Ende
-    createLevel4Label(scene, '→ zum Patchpanel (aus Spiel-Level 3)', kanalWidth / 2 - 0.5, 2.5, -1.55);
+    createLevel4Label(scene, '→ zum Patchpanel (aus Spiel-Level 3)', kanalWidth / 2 - 0.5, 2.5, -1.35);
 }
 
 function createLevel4PatchCables() {
@@ -4252,8 +4572,8 @@ function drawLevel4NetworkDiagram(ctx, w, h, screenSide, pc1Connected, pc2Connec
     ctx.font = '11px Arial';
     ctx.fillText('PC 1', pc1X, centerY + 30);
 
-    // Switch Icon
-    ctx.fillStyle = '#7744aa';
+    // Switch Icon (Farbe wie Switch Büro 1: dunkelblau #1e3a5f)
+    ctx.fillStyle = '#2a5a8f';
     ctx.fillRect(switchX - 30, centerY - 15, 60, 30);
     ctx.fillStyle = '#ffffff';
     ctx.font = '11px Arial';
@@ -4556,7 +4876,7 @@ function createLevel4RoutedCable(side, socketPortName) {
     // Kabelroute: Tower-Rückseite → zur Wand → zur Dose
     // Tower is at y=1.55, port at y offset -0.3, back face z=-0.62
     const startPos = new THREE.Vector3(pcX + towerOffsetX + 0.15, 1.55 - 0.3, -0.62);
-    const endPos = new THREE.Vector3(socketX, 2.5, -1.52);
+    const endPos = new THREE.Vector3(socketX, 2.5, -1.34);
 
     const curve = new THREE.CatmullRomCurve3([
         startPos,
