@@ -4082,7 +4082,7 @@ function updateLevel4Screen(side, state, terminalLines) {
         const conn = gameState.level4.connections;
         const leftConn = conn.left.pcConnected && conn.left.socketConnected;
         const rightConn = conn.right.pcConnected && conn.right.socketConnected;
-        drawLevel4NetworkDiagram(ctx, w, h, leftConn, rightConn);
+        drawLevel4NetworkDiagram(ctx, w, h, side, leftConn, rightConn);
     } else if (state === 'terminal') {
         drawLevel4Terminal(ctx, w, h, terminalLines || []);
     }
@@ -4099,8 +4099,10 @@ function refreshLevel4Screens() {
     updateLevel4Screen('right', 'network');
 }
 
-function drawLevel4NetworkDiagram(ctx, w, h, pc1Connected, pc2Connected) {
-    const anyConnected = pc1Connected || pc2Connected;
+function drawLevel4NetworkDiagram(ctx, w, h, screenSide, pc1Connected, pc2Connected) {
+    // Jeder PC kennt nur seinen eigenen Verbindungsstatus.
+    // Die Verbindung des anderen PCs ist unbekannt ("?") bis beide verbunden sind.
+    const ownConnected = screenSide === 'left' ? pc1Connected : pc2Connected;
     const allConnected = pc1Connected && pc2Connected;
 
     // Desktop-Hintergrund
@@ -4111,8 +4113,8 @@ function drawLevel4NetworkDiagram(ctx, w, h, pc1Connected, pc2Connected) {
     ctx.fillStyle = '#0a0a15';
     ctx.fillRect(0, h - 30, w, 30);
 
-    // Netzwerk-Icon in Taskbar (grün wenn eigener PC verbunden)
-    if (anyConnected) {
+    // Netzwerk-Icon in Taskbar (grün nur wenn eigener PC verbunden)
+    if (ownConnected) {
         ctx.fillStyle = '#22ff22';
         ctx.font = '16px Arial';
         ctx.fillText('🖧', w - 40, h - 10);
@@ -4134,8 +4136,9 @@ function drawLevel4NetworkDiagram(ctx, w, h, pc1Connected, pc2Connected) {
     const switchX = w / 2;
     const pc2X = w - 80;
 
-    // PC 1 Icon
-    ctx.fillStyle = pc1Connected ? '#22aa22' : '#4488cc';
+    // PC 1 Icon — Farbe je nach Perspektive
+    const pc1Known = allConnected || screenSide === 'left';
+    ctx.fillStyle = pc1Known ? (pc1Connected ? '#22aa22' : '#4488cc') : '#666666';
     ctx.fillRect(pc1X - 25, centerY - 20, 50, 35);
     ctx.fillStyle = '#ffffff';
     ctx.font = '11px Arial';
@@ -4148,16 +4151,21 @@ function drawLevel4NetworkDiagram(ctx, w, h, pc1Connected, pc2Connected) {
     ctx.font = '11px Arial';
     ctx.fillText('Switch 1', switchX, centerY + 30);
 
-    // PC 2 Icon
-    ctx.fillStyle = pc2Connected ? '#22aa22' : '#44aa44';
+    // PC 2 Icon — Farbe je nach Perspektive
+    const pc2Known = allConnected || screenSide === 'right';
+    ctx.fillStyle = pc2Known ? (pc2Connected ? '#22aa22' : '#44aa44') : '#666666';
     ctx.fillRect(pc2X - 25, centerY - 20, 50, 35);
     ctx.fillStyle = '#ffffff';
     ctx.font = '11px Arial';
     ctx.fillText('PC 2', pc2X, centerY + 30);
 
-    // PC1 → Switch Verbindung
+    // PC1 → Switch Verbindungslinie
     ctx.lineWidth = 3;
-    if (pc1Connected) {
+    if (!pc1Known) {
+        // Unbekannt: graue gestrichelte Linie mit "?"
+        ctx.strokeStyle = '#888888';
+        ctx.setLineDash([4, 4]);
+    } else if (pc1Connected) {
         ctx.strokeStyle = '#22ff22';
         ctx.setLineDash([]);
     } else {
@@ -4168,9 +4176,17 @@ function drawLevel4NetworkDiagram(ctx, w, h, pc1Connected, pc2Connected) {
     ctx.moveTo(pc1X + 25, centerY);
     ctx.lineTo(switchX - 30, centerY);
     ctx.stroke();
+    if (!pc1Known) {
+        ctx.fillStyle = '#aaaaaa';
+        ctx.font = 'bold 14px Arial';
+        ctx.fillText('?', (pc1X + 25 + switchX - 30) / 2, centerY - 8);
+    }
 
-    // Switch → PC2 Verbindung
-    if (pc2Connected) {
+    // Switch → PC2 Verbindungslinie
+    if (!pc2Known) {
+        ctx.strokeStyle = '#888888';
+        ctx.setLineDash([4, 4]);
+    } else if (pc2Connected) {
         ctx.strokeStyle = '#22ff22';
         ctx.setLineDash([]);
     } else {
@@ -4181,6 +4197,11 @@ function drawLevel4NetworkDiagram(ctx, w, h, pc1Connected, pc2Connected) {
     ctx.moveTo(switchX + 30, centerY);
     ctx.lineTo(pc2X - 25, centerY);
     ctx.stroke();
+    if (!pc2Known) {
+        ctx.fillStyle = '#aaaaaa';
+        ctx.font = 'bold 14px Arial';
+        ctx.fillText('?', (switchX + 30 + pc2X - 25) / 2, centerY - 8);
+    }
 
     ctx.setLineDash([]);
 
@@ -4190,12 +4211,9 @@ function drawLevel4NetworkDiagram(ctx, w, h, pc1Connected, pc2Connected) {
     if (allConnected) {
         ctx.fillStyle = '#22ff22';
         ctx.fillText('✓ Beide PCs verbunden!', w / 2, h - 55);
-    } else if (pc1Connected && !pc2Connected) {
+    } else if (ownConnected) {
         ctx.fillStyle = '#ffaa00';
-        ctx.fillText('PC 1 verbunden — PC 2 fehlt', w / 2, h - 55);
-    } else if (!pc1Connected && pc2Connected) {
-        ctx.fillStyle = '#ffaa00';
-        ctx.fillText('PC 2 verbunden — PC 1 fehlt', w / 2, h - 55);
+        ctx.fillText('✓ Verbunden — warte auf Gegenstelle...', w / 2, h - 55);
     } else {
         ctx.fillStyle = '#ff6666';
         ctx.fillText('✕ Nicht verbunden', w / 2, h - 55);
