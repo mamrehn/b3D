@@ -29,7 +29,7 @@ const LEVELS = {
     },
     4: {
         name: 'PC-Vernetzung',
-        description: 'Verbinde zwei PCs mit der Netzwerkdose und teste mit Ping',
+        description: 'Verbinde zwei PCs mit ihren Doppeldosen und teste mit Ping',
         icon: '🖧'
     }
 };
@@ -443,16 +443,16 @@ function updateStartModal() {
         header.textContent = '🖧 Level 4: PC-Vernetzung';
         body.innerHTML = `
             <p>Willkommen zu Level 4!</p>
-            <p>Zwei PCs stehen bereit, aber sind noch <strong>nicht mit dem Netzwerk verbunden</strong>. Die Doppeldose an der Wand führt über das Patchpanel zum Switch.</p>
+            <p>Zwei PCs stehen bereit, aber sind noch <strong>nicht mit dem Netzwerk verbunden</strong>. Jeder PC hat eine eigene Doppeldose (DD1 und DD2) im Kabelkanal an der Wand.</p>
             <h3>Deine Aufgabe:</h3>
             <ol>
                 <li>${tapOrClick} ein <strong>Patchkabel</strong> auf dem Tisch</li>
                 <li>${tapOrClick} den <strong>Ethernet-Port am PC</strong> (Rückseite)</li>
-                <li>${tapOrClick} einen <strong>Port der Doppeldose</strong> an der Wand</li>
-                <li>Verbinde <strong>beide PCs</strong> mit der Doppeldose</li>
+                <li>${tapOrClick} den richtigen <strong>Port der Doppeldose</strong> im Kabelkanal</li>
+                <li>Verbinde <strong>PC 1 → DD1-1</strong> und <strong>PC 2 → DD2-1</strong></li>
                 <li>Führe einen <strong>Ping-Test</strong> durch ${sidebarLabel}</li>
             </ol>
-            <p class="tip">💡 <strong>Tipp:</strong> Sobald beide PCs verbunden sind, zeigen die Bildschirme eine aktive Netzwerkverbindung!</p>
+            <p class="tip">💡 <strong>Tipp:</strong> Jeder Arbeitsplatz hat seine eigene Doppeldose!</p>
         `;
     }
 }
@@ -3905,9 +3905,8 @@ function createLevel4PC(side, x) {
 }
 
 function createLevel4Kabelkanal() {
-    // Kabelkanal an der Wand mit eingebetteter Doppeldose (wie in Level 1/2)
-    // Die Doppeldose sitzt im Kanal, Frontseite ragt nach vorne heraus
-    // Orange Verlegekabel laufen im Kanal von der Dose nach rechts zum Serverraum
+    // Kabelkanal an der Wand mit zwei eingebetteten Doppeldosen (DD1 bei PC1, DD2 bei PC2)
+    // Frontseiten ragen nach vorne heraus, orange Verlegekabel laufen im Kanal
 
     const kanalGroup = new THREE.Group();
 
@@ -3916,11 +3915,16 @@ function createLevel4Kabelkanal() {
         roughness: 0.4
     });
 
-    // Kabelkanal-Maße — volle Raumbreite (20), ohne Endkappen (offen an beiden Seiten)
+    // Kabelkanal-Maße — volle Raumbreite (20), offen an beiden Seiten
     const kanalWidth = 20;
-    const kanalHeight = 1.2;    // Hoch genug für die Doppeldose
+    const kanalHeight = 0.8;
     const kanalDepth = 0.4;
     const wallThickness = 0.06;
+
+    // Dosen-Positionen (lokal im Kanal, nah beieinander in der Mitte)
+    const dd1X = -1.2;   // DD1 für PC1
+    const dd2X = 1.2;    // DD2 für PC2
+    const doseOpeningWidth = 1.2;  // Breite der Öffnung pro Dose
 
     // Boden
     const bodenGeometry = new THREE.BoxGeometry(kanalWidth, wallThickness, kanalDepth);
@@ -3934,137 +3938,152 @@ function createLevel4Kabelkanal() {
     decke.position.set(0, kanalHeight / 2, 0);
     kanalGroup.add(decke);
 
-    // Rückwand (an der Wand)
+    // Rückwand
     const rueckwandGeometry = new THREE.BoxGeometry(kanalWidth, kanalHeight, wallThickness);
     const rueckwand = new THREE.Mesh(rueckwandGeometry, kanalMaterial);
     rueckwand.position.set(0, 0, -kanalDepth / 2 + wallThickness / 2);
     kanalGroup.add(rueckwand);
 
-    // Vordere Abdeckung LINKS der Dose (von linkem Rand bis zur Dose)
-    const frontLeftWidth = kanalWidth / 2 - 1.0; // von x=-10 bis x=-1.0
-    const frontLeftGeometry = new THREE.BoxGeometry(frontLeftWidth, kanalHeight - 0.02, wallThickness);
-    const frontLeft = new THREE.Mesh(frontLeftGeometry, kanalMaterial);
-    frontLeft.position.set(-kanalWidth / 2 + frontLeftWidth / 2, 0, kanalDepth / 2 - wallThickness / 2);
-    kanalGroup.add(frontLeft);
+    // Vordere Abdeckung — 3 Segmente (links von DD1, zwischen DD1 und DD2, rechts von DD2)
+    const frontZ = kanalDepth / 2 - wallThickness / 2;
+    const dd1Left = dd1X - doseOpeningWidth / 2;    // -3.1
+    const dd1Right = dd1X + doseOpeningWidth / 2;   // -1.9
+    const dd2Left = dd2X - doseOpeningWidth / 2;    //  1.9
+    const dd2Right = dd2X + doseOpeningWidth / 2;   //  3.1
 
-    // Vordere Abdeckung RECHTS der Dose (von Dose bis rechtem Rand)
-    const frontRightWidth = kanalWidth / 2 - 1.0; // von x=1.0 bis x=10
-    const frontRightGeometry = new THREE.BoxGeometry(frontRightWidth, kanalHeight - 0.02, wallThickness);
-    const frontRight = new THREE.Mesh(frontRightGeometry, kanalMaterial);
-    frontRight.position.set(kanalWidth / 2 - frontRightWidth / 2, 0, kanalDepth / 2 - wallThickness / 2);
-    kanalGroup.add(frontRight);
+    // Segment 1: linker Rand bis DD1
+    const seg1Width = dd1Left - (-kanalWidth / 2);  // -3.1 - (-10) = 6.9
+    const seg1 = new THREE.Mesh(
+        new THREE.BoxGeometry(seg1Width, kanalHeight - 0.02, wallThickness), kanalMaterial
+    );
+    seg1.position.set(-kanalWidth / 2 + seg1Width / 2, 0, frontZ);
+    kanalGroup.add(seg1);
 
-    // Keine Endkappen — Kanal ist an beiden Seiten offen (Kabel sichtbar)
+    // Segment 2: zwischen DD1 und DD2
+    const seg2Width = dd2Left - dd1Right;  // 1.9 - (-1.9) = 3.8
+    const seg2 = new THREE.Mesh(
+        new THREE.BoxGeometry(seg2Width, kanalHeight - 0.02, wallThickness), kanalMaterial
+    );
+    seg2.position.set((dd1Right + dd2Left) / 2, 0, frontZ);
+    kanalGroup.add(seg2);
 
-    // ========== Eingebettete Doppeldose (Frontseite ragt heraus) ==========
-    const doseGroup = new THREE.Group();
+    // Segment 3: rechts von DD2 bis rechter Rand
+    const seg3Width = kanalWidth / 2 - dd2Right;  // 10 - 3.1 = 6.9
+    const seg3 = new THREE.Mesh(
+        new THREE.BoxGeometry(seg3Width, kanalHeight - 0.02, wallThickness), kanalMaterial
+    );
+    seg3.position.set(dd2Right + seg3Width / 2, 0, frontZ);
+    kanalGroup.add(seg3);
 
-    // Frontplatte der Dose (weiß, ragt aus dem Kanal heraus)
-    const frontPlateGeometry = new THREE.BoxGeometry(1.8, 1.0, 0.12);
-    const frontPlateMaterial = new THREE.MeshStandardMaterial({
-        color: 0xf8f8f8,
-        roughness: 0.4
-    });
-    const frontPlate = new THREE.Mesh(frontPlateGeometry, frontPlateMaterial);
-    frontPlate.position.set(0, 0, kanalDepth / 2 + 0.06);
-    doseGroup.add(frontPlate);
+    // Keine Endkappen — Kanal ist an beiden Seiten offen
 
-    // Zierrahmen um die Frontplatte
-    const borderGeometry = new THREE.BoxGeometry(2.0, 1.15, 0.03);
-    const borderMaterial = new THREE.MeshStandardMaterial({
-        color: 0xe8e8e8,
-        roughness: 0.3
-    });
-    const border = new THREE.Mesh(borderGeometry, borderMaterial);
-    border.position.set(0, 0, kanalDepth / 2 - 0.01);
-    doseGroup.add(border);
+    // ========== Doppeldosen erstellen (DD1 und DD2) ==========
+    const doseData = [
+        { name: 'DD1', x: dd1X, ports: ['DD1-1', 'DD1-2'] },
+        { name: 'DD2', x: dd2X, ports: ['DD2-1', 'DD2-2'] }
+    ];
 
-    // RJ45-Buchse DD1-1 (links) — interaktiver Port
-    const portGeometry = new THREE.BoxGeometry(0.3, 0.22, 0.1);
-    const portMaterial = new THREE.MeshStandardMaterial({
-        color: 0x1a1a1a,
-        roughness: 0.7
-    });
-
-    const port1 = new THREE.Mesh(portGeometry, portMaterial);
-    port1.position.set(-0.4, 0, kanalDepth / 2 + 0.13);
-    port1.userData = {
-        type: 'level4SocketPort',
-        portName: 'DD1-1',
-        portIndex: 0,
-        isConnected: false
-    };
-    doseGroup.add(port1);
-    level4SocketPorts.push(port1);
-
-    // RJ45-Buchse Inneres DD1-1 (goldene Kontakte angedeutet)
-    const innerJackGeometry = new THREE.BoxGeometry(0.24, 0.16, 0.06);
+    const portGeometry = new THREE.BoxGeometry(0.2, 0.15, 0.1);
+    const innerJackGeometry = new THREE.BoxGeometry(0.16, 0.11, 0.06);
     const innerJackMaterial = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.3 });
-    const innerJack1 = new THREE.Mesh(innerJackGeometry, innerJackMaterial);
-    innerJack1.position.set(-0.4, 0, kanalDepth / 2 + 0.1);
-    doseGroup.add(innerJack1);
 
-    // RJ45-Buchse DD1-2 (rechts) — interaktiver Port
-    const port2 = new THREE.Mesh(portGeometry, portMaterial.clone());
-    port2.position.set(0.4, 0, kanalDepth / 2 + 0.13);
-    port2.userData = {
-        type: 'level4SocketPort',
-        portName: 'DD1-2',
-        portIndex: 1,
-        isConnected: false
-    };
-    doseGroup.add(port2);
-    level4SocketPorts.push(port2);
+    doseData.forEach((dose, doseIndex) => {
+        const doseGroup = new THREE.Group();
 
-    // RJ45-Buchse Inneres DD1-2
-    const innerJack2 = new THREE.Mesh(innerJackGeometry.clone(), innerJackMaterial);
-    innerJack2.position.set(0.4, 0, kanalDepth / 2 + 0.1);
-    doseGroup.add(innerJack2);
+        // Frontplatte (kompakt)
+        const frontPlate = new THREE.Mesh(
+            new THREE.BoxGeometry(1.1, 0.65, 0.1),
+            new THREE.MeshStandardMaterial({ color: 0xf8f8f8, roughness: 0.4 })
+        );
+        frontPlate.position.set(0, 0, kanalDepth / 2 + 0.05);
+        doseGroup.add(frontPlate);
 
-    // Port-Labels unter den Buchsen
-    createLevel4Label(doseGroup, 'DD1-1', -0.4, -0.55, kanalDepth / 2 + 0.15);
-    createLevel4Label(doseGroup, 'DD1-2', 0.4, -0.55, kanalDepth / 2 + 0.15);
+        // Zierrahmen
+        const border = new THREE.Mesh(
+            new THREE.BoxGeometry(1.2, 0.75, 0.03),
+            new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.3 })
+        );
+        border.position.set(0, 0, kanalDepth / 2 - 0.01);
+        doseGroup.add(border);
 
-    // Dose bei x=0 im Kanal (relativ zur kanalGroup)
-    doseGroup.position.set(0, 0, 0);
-    kanalGroup.add(doseGroup);
+        // Zwei RJ45-Ports pro Dose
+        const portOffsets = [-0.25, 0.25];
+        dose.ports.forEach((portName, portIdx) => {
+            const portMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.7 });
+            const port = new THREE.Mesh(portGeometry, portMaterial);
+            port.position.set(portOffsets[portIdx], 0, kanalDepth / 2 + 0.11);
+            port.userData = {
+                type: 'level4SocketPort',
+                portName: portName,
+                portIndex: doseIndex * 2 + portIdx,
+                doseName: dose.name,
+                isConnected: false
+            };
+            doseGroup.add(port);
+            level4SocketPorts.push(port);
+
+            // Inneres der Buchse
+            const innerJack = new THREE.Mesh(innerJackGeometry.clone(), innerJackMaterial);
+            innerJack.position.set(portOffsets[portIdx], 0, kanalDepth / 2 + 0.08);
+            doseGroup.add(innerJack);
+
+            // Port-Label
+            createLevel4Label(doseGroup, portName, portOffsets[portIdx], -0.4, kanalDepth / 2 + 0.12);
+        });
+
+        // Dose-Name über der Frontplatte
+        createLevel4Label(doseGroup, dose.name, 0, 0.5, kanalDepth / 2 + 0.1);
+
+        doseGroup.position.set(dose.x, 0, 0);
+        kanalGroup.add(doseGroup);
+    });
 
     // ========== Orange Verlegekabel im Kanal ==========
-    // Kabel kommen von rechts (Serverraum/Patchpanel) und führen zur Doppeldose
+    // 4 Kabel kommen von rechts (Serverraum), 2 gehen zu DD1, 2 zu DD2
     const cableMaterial = new THREE.MeshStandardMaterial({
         color: 0xFF8C00,
         roughness: 0.6
     });
 
-    const cableStartX = kanalWidth / 2;  // rechter Rand (offen, Kabel kommen von außen)
-    const cableEndX = 0.5;               // kurz rechts der Dose
+    const cableRightEdge = kanalWidth / 2;  // rechter offener Rand
 
-    [-0.06, 0.06].forEach(offsetZ => {
+    // Kabel zu DD2 (kürzere Strecke: von rechts bis x=2.5)
+    [-0.05, 0.05].forEach((offsetZ, i) => {
+        const yOff = i === 0 ? 0.08 : -0.08;
         const curve = new THREE.CatmullRomCurve3([
-            new THREE.Vector3(cableStartX, 0, offsetZ),
-            new THREE.Vector3(cableStartX * 0.6, 0.06, offsetZ),
-            new THREE.Vector3(cableStartX * 0.3, -0.04, offsetZ),
-            new THREE.Vector3(cableEndX, 0, offsetZ)
+            new THREE.Vector3(cableRightEdge, yOff, offsetZ),
+            new THREE.Vector3(cableRightEdge * 0.6, yOff + 0.04, offsetZ),
+            new THREE.Vector3(dd2X + 0.5, yOff - 0.02, offsetZ)
         ]);
-        const tubeGeometry = new THREE.TubeGeometry(curve, 32, 0.04, 8, false);
-        const cable = new THREE.Mesh(tubeGeometry, cableMaterial);
+        const cable = new THREE.Mesh(
+            new THREE.TubeGeometry(curve, 20, 0.035, 8, false), cableMaterial
+        );
         kanalGroup.add(cable);
     });
 
-    // ========== Position des gesamten Kabelkanals ==========
-    // Zentriert so, dass die Dose (x=0 im Kanal) bei Welt-x=0 liegt
-    // Kanal geht von Welt-x=-5 bis Welt-x=5
+    // Kabel zu DD1 (längere Strecke: von rechts durch den Kanal bis x=-2.5)
+    [-0.05, 0.05].forEach((offsetZ, i) => {
+        const yOff = i === 0 ? 0.15 : -0.15;
+        const curve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(cableRightEdge, yOff, offsetZ),
+            new THREE.Vector3(cableRightEdge * 0.5, yOff + 0.05, offsetZ),
+            new THREE.Vector3(0, yOff - 0.03, offsetZ),
+            new THREE.Vector3(dd1X + 0.5, yOff, offsetZ)
+        ]);
+        const cable = new THREE.Mesh(
+            new THREE.TubeGeometry(curve, 32, 0.035, 8, false), cableMaterial
+        );
+        kanalGroup.add(cable);
+    });
+
+    // ========== Position des Kabelkanals ==========
     kanalGroup.position.set(0, 2.5, -1.85);
     scene.add(kanalGroup);
 
     // ========== Labels ==========
-    // Dose-Label über der Frontplatte
-    createLevel4Label(scene, 'Doppeldose (aus Spiel-Level 2)', 0, 3.35, -1.55);
+    createLevel4Label(scene, 'Kabelkanal (aus Spiel-Level 1)', 0, 3.45, -1.55);
 
-    // Kabelkanal-Label
-    createLevel4Label(scene, 'Kabelkanal (aus Spiel-Level 1)', 0, 3.55, -1.55);
-
-    // "Zum Patchpanel" Label am rechten (fernen) Ende des Kanals
+    // "Zum Patchpanel" am rechten offenen Ende
     createLevel4Label(scene, '→ zum Patchpanel (aus Spiel-Level 3)', kanalWidth / 2 - 0.5, 2.5, -1.55);
 }
 
@@ -4118,17 +4137,24 @@ function createLevel4PatchCables() {
 function createLevel4Label(parent, text, x, y, z) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    canvas.width = 256;
-    canvas.height = 48;
+    const fontSize = 16;
+    const padding = 12;
+    const font = `bold ${fontSize}px Arial`;
+
+    // Textbreite messen
+    ctx.font = font;
+    const textWidth = ctx.measureText(text).width;
+    canvas.width = Math.ceil(textWidth + padding * 2);
+    canvas.height = fontSize + padding * 2;
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(0, 0, 256, 48);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 16px Arial';
+    ctx.font = font;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, 128, 24);
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
 
     const texture = new THREE.CanvasTexture(canvas);
     const spriteMaterial = new THREE.SpriteMaterial({
@@ -4137,7 +4163,10 @@ function createLevel4Label(parent, text, x, y, z) {
     });
     const sprite = new THREE.Sprite(spriteMaterial);
     sprite.position.set(x, y, z);
-    sprite.scale.set(2.0, 0.4, 1);
+    // Sprite-Skalierung proportional zur Textbreite
+    const worldHeight = 0.35;
+    const aspect = canvas.width / canvas.height;
+    sprite.scale.set(worldHeight * aspect, worldHeight, 1);
     sprite.renderOrder = 100;
     parent.add(sprite);
 }
@@ -4459,6 +4488,13 @@ function handleLevel4SocketConnect(port, portData) {
 
     const selectedSide = gameState.level4.selectedCable;
 
+    // Nur den korrekten Port erlauben: PC1 → DD1-1, PC2 → DD2-1
+    const allowedPort = selectedSide === 'left' ? 'DD1-1' : 'DD2-1';
+    if (portData.portName !== allowedPort) {
+        showFeedback(`Dieses Kabel gehört in ${allowedPort}!`, 'warning');
+        return;
+    }
+
     // Dosen-Port als verbunden markieren
     portData.isConnected = true;
     port.material.color = new THREE.Color(0x22aa22);
@@ -4507,7 +4543,14 @@ function finishLevel4Cable(side) {
 function createLevel4RoutedCable(side, socketPortName) {
     const pcX = side === 'left' ? -3.5 : 3.5;
     const towerOffsetX = side === 'left' ? 1.8 : -1.8;
-    const socketX = socketPortName === 'DD1-1' ? -0.4 : 0.4;
+
+    // Socket-Position basierend auf Dose und Port
+    // DD1 bei x=-2.5, DD2 bei x=2.5; linker Port bei -0.25, rechter bei +0.25
+    const socketPositions = {
+        'DD1-1': -1.2 - 0.25, 'DD1-2': -1.2 + 0.25,
+        'DD2-1':  1.2 - 0.25, 'DD2-2':  1.2 + 0.25
+    };
+    const socketX = socketPositions[socketPortName] || 0;
     const cableColor = 0xB0B0B0;  // Gleiche Farbe wie Patchkabel in Level 3
 
     // Kabelroute: Tower-Rückseite → zur Wand → zur Dose
@@ -4625,18 +4668,18 @@ function updateLevel4UI() {
         const instructionsDiv = document.createElement('div');
         instructionsDiv.className = 'level4-instructions';
         instructionsDiv.innerHTML = `
-            <p class="panel-description"><strong>Verbinde beide PCs mit der Doppeldose:</strong></p>
+            <p class="panel-description"><strong>Verbinde beide PCs mit ihrer Doppeldose:</strong></p>
             <div class="connection-status-list">
                 <div class="conn-item ${gameState.level4.connections.left.socketConnected ? 'done' : ''}">
                     <span class="conn-icon">${gameState.level4.connections.left.socketConnected ? '✅' : '⬜'}</span>
-                    <span>PC 1 → Doppeldose</span>
+                    <span>PC 1 → DD1-1</span>
                 </div>
                 <div class="conn-item ${gameState.level4.connections.right.socketConnected ? 'done' : ''}">
                     <span class="conn-icon">${gameState.level4.connections.right.socketConnected ? '✅' : '⬜'}</span>
-                    <span>PC 2 → Doppeldose</span>
+                    <span>PC 2 → DD2-1</span>
                 </div>
             </div>
-            <p class="hint-text">💡 ${isTouchDevice() ? 'Tippe auf' : 'Klicke auf'} ein Patchkabel, dann den PC-Port, dann die Dose</p>
+            <p class="hint-text">💡 ${isTouchDevice() ? 'Tippe auf' : 'Klicke auf'} ein Patchkabel, dann den PC-Port, dann den Dosen-Port</p>
         `;
         cableCoresContainer.appendChild(instructionsDiv);
     } else {
@@ -4743,13 +4786,16 @@ function checkLevel4Solution() {
     stopTimer();
 
     const conn = gameState.level4.connections;
-    const cablesCorrect = conn.left.socketConnected && conn.right.socketConnected;
+    const cablesConnected = conn.left.socketConnected && conn.right.socketConnected;
+    const pc1Correct = conn.left.socketPortName === 'DD1-1';
+    const pc2Correct = conn.right.socketPortName === 'DD2-1';
+    const cablesCorrect = cablesConnected && pc1Correct && pc2Correct;
     const pingDone = gameState.level4.pingComplete;
 
     // Score berechnen
     let score = 0;
-    if (conn.left.socketConnected) score += 40;
-    if (conn.right.socketConnected) score += 40;
+    if (conn.left.socketConnected && pc1Correct) score += 40;
+    if (conn.right.socketConnected && pc2Correct) score += 40;
     if (pingDone) score += 20;
 
     const timeBonus = calculateTimeBonus();
@@ -4859,12 +4905,17 @@ function showLevel4Result(success, score) {
         scoreEl.innerHTML = `<strong>${score}</strong> Punkte`;
         timeEl.innerHTML = `⏱️ Zeit: ${formatTime(gameState.elapsedTime)}`;
 
+        const conn = gameState.level4.connections;
         let detailHtml = '<p>Es fehlen noch Schritte:</p><ul>';
-        if (!gameState.level4.connections.left.socketConnected) {
+        if (!conn.left.socketConnected) {
             detailHtml += '<li>PC 1 ist nicht verbunden</li>';
+        } else if (conn.left.socketPortName !== 'DD1-1') {
+            detailHtml += `<li>PC 1 ist mit ${conn.left.socketPortName} verbunden — soll DD1-1 sein</li>`;
         }
-        if (!gameState.level4.connections.right.socketConnected) {
+        if (!conn.right.socketConnected) {
             detailHtml += '<li>PC 2 ist nicht verbunden</li>';
+        } else if (conn.right.socketPortName !== 'DD2-1') {
+            detailHtml += `<li>PC 2 ist mit ${conn.right.socketPortName} verbunden — soll DD2-1 sein</li>`;
         }
         if (!gameState.level4.pingComplete) {
             detailHtml += '<li>Ping-Test nicht durchgeführt</li>';
