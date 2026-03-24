@@ -3904,7 +3904,7 @@ function createLevel4PC(side, x) {
     scene.add(pcGroup);
 
     // Bildschirm initial zeichnen
-    updateLevel4Screen(side, 'disconnected');
+    updateLevel4Screen(side, 'network');
 }
 
 function createLevel4Doppeldose() {
@@ -4077,10 +4077,12 @@ function updateLevel4Screen(side, state, terminalLines) {
     // Bildschirm löschen
     ctx.clearRect(0, 0, w, h);
 
-    if (state === 'disconnected') {
-        drawLevel4NetworkDiagram(ctx, w, h, false);
-    } else if (state === 'connected') {
-        drawLevel4NetworkDiagram(ctx, w, h, true);
+    if (state === 'network') {
+        // Aktuellen Verbindungsstatus aus gameState lesen
+        const conn = gameState.level4.connections;
+        const leftConn = conn.left.pcConnected && conn.left.socketConnected;
+        const rightConn = conn.right.pcConnected && conn.right.socketConnected;
+        drawLevel4NetworkDiagram(ctx, w, h, leftConn, rightConn);
     } else if (state === 'terminal') {
         drawLevel4Terminal(ctx, w, h, terminalLines || []);
     }
@@ -4091,17 +4093,26 @@ function updateLevel4Screen(side, state, terminalLines) {
     }
 }
 
-function drawLevel4NetworkDiagram(ctx, w, h, connected) {
+function refreshLevel4Screens() {
+    // Beide Bildschirme mit aktuellem Verbindungsstatus aktualisieren
+    updateLevel4Screen('left', 'network');
+    updateLevel4Screen('right', 'network');
+}
+
+function drawLevel4NetworkDiagram(ctx, w, h, pc1Connected, pc2Connected) {
+    const anyConnected = pc1Connected || pc2Connected;
+    const allConnected = pc1Connected && pc2Connected;
+
     // Desktop-Hintergrund
-    ctx.fillStyle = connected ? '#1a3a1a' : '#1a1a2a';
+    ctx.fillStyle = allConnected ? '#1a3a1a' : '#1a1a2a';
     ctx.fillRect(0, 0, w, h);
 
     // Taskbar unten
     ctx.fillStyle = '#0a0a15';
     ctx.fillRect(0, h - 30, w, 30);
 
-    // Netzwerk-Icon in Taskbar
-    if (connected) {
+    // Netzwerk-Icon in Taskbar (grün wenn eigener PC verbunden)
+    if (anyConnected) {
         ctx.fillStyle = '#22ff22';
         ctx.font = '16px Arial';
         ctx.fillText('🖧', w - 40, h - 10);
@@ -4124,7 +4135,7 @@ function drawLevel4NetworkDiagram(ctx, w, h, connected) {
     const pc2X = w - 80;
 
     // PC 1 Icon
-    ctx.fillStyle = '#4488cc';
+    ctx.fillStyle = pc1Connected ? '#22aa22' : '#4488cc';
     ctx.fillRect(pc1X - 25, centerY - 20, 50, 35);
     ctx.fillStyle = '#ffffff';
     ctx.font = '11px Arial';
@@ -4138,29 +4149,34 @@ function drawLevel4NetworkDiagram(ctx, w, h, connected) {
     ctx.fillText('Switch 1', switchX, centerY + 30);
 
     // PC 2 Icon
-    ctx.fillStyle = '#44aa44';
+    ctx.fillStyle = pc2Connected ? '#22aa22' : '#44aa44';
     ctx.fillRect(pc2X - 25, centerY - 20, 50, 35);
     ctx.fillStyle = '#ffffff';
     ctx.font = '11px Arial';
     ctx.fillText('PC 2', pc2X, centerY + 30);
 
-    // Verbindungslinien
+    // PC1 → Switch Verbindung
     ctx.lineWidth = 3;
-    if (connected) {
+    if (pc1Connected) {
         ctx.strokeStyle = '#22ff22';
         ctx.setLineDash([]);
     } else {
         ctx.strokeStyle = '#ff4444';
         ctx.setLineDash([8, 6]);
     }
-
-    // PC1 → Switch
     ctx.beginPath();
     ctx.moveTo(pc1X + 25, centerY);
     ctx.lineTo(switchX - 30, centerY);
     ctx.stroke();
 
-    // Switch → PC2
+    // Switch → PC2 Verbindung
+    if (pc2Connected) {
+        ctx.strokeStyle = '#22ff22';
+        ctx.setLineDash([]);
+    } else {
+        ctx.strokeStyle = '#ff4444';
+        ctx.setLineDash([8, 6]);
+    }
     ctx.beginPath();
     ctx.moveTo(switchX + 30, centerY);
     ctx.lineTo(pc2X - 25, centerY);
@@ -4169,11 +4185,17 @@ function drawLevel4NetworkDiagram(ctx, w, h, connected) {
     ctx.setLineDash([]);
 
     // Status-Text
-    ctx.font = 'bold 16px Arial';
+    ctx.font = 'bold 14px Arial';
     ctx.textAlign = 'center';
-    if (connected) {
+    if (allConnected) {
         ctx.fillStyle = '#22ff22';
-        ctx.fillText('✓ Verbunden!', w / 2, h - 55);
+        ctx.fillText('✓ Beide PCs verbunden!', w / 2, h - 55);
+    } else if (pc1Connected && !pc2Connected) {
+        ctx.fillStyle = '#ffaa00';
+        ctx.fillText('PC 1 verbunden — PC 2 fehlt', w / 2, h - 55);
+    } else if (!pc1Connected && pc2Connected) {
+        ctx.fillStyle = '#ffaa00';
+        ctx.fillText('PC 2 verbunden — PC 1 fehlt', w / 2, h - 55);
     } else {
         ctx.fillStyle = '#ff6666';
         ctx.fillText('✕ Nicht verbunden', w / 2, h - 55);
@@ -4381,9 +4403,7 @@ function finishLevel4Cable(side) {
     gameState.level4.selectedCable = null;
     gameState.level4.cablePhase = 'pickUp';
 
-    showFeedback(`Kabel verbunden!`, 'success');
-
-    // Prüfen ob beide PCs verbunden
+    // Prüfen Verbindungsstatus und Bildschirme aktualisieren
     checkLevel4Connectivity();
     updateLevel4Progress();
 }
@@ -4424,19 +4444,22 @@ function checkLevel4Connectivity() {
     const leftDone = conn.left.pcConnected && conn.left.socketConnected;
     const rightDone = conn.right.pcConnected && conn.right.socketConnected;
 
+    // Bildschirme immer aktualisieren (zeigt pro-PC Status)
+    refreshLevel4Screens();
+
     if (leftDone && rightDone && !gameState.level4.bothConnected) {
         gameState.level4.bothConnected = true;
 
-        // Bildschirme auf "verbunden" aktualisieren
-        updateLevel4Screen('left', 'connected');
-        updateLevel4Screen('right', 'connected');
+        showFeedback('Beide PCs verbunden! Führe jetzt den Ping-Test durch.', 'success');
 
-        showFeedback('Netzwerkverbindung hergestellt! Führe jetzt den Ping-Test durch.', 'success');
-
-        // UI aktualisieren: Ping-Terminal anzeigen
+        // UI aktualisieren: Ping-Button anzeigen
         setTimeout(() => {
             updateLevel4UI();
         }, 1500);
+    } else if (leftDone && !rightDone) {
+        showFeedback('PC 1 verbunden! Jetzt PC 2 anschließen.', 'success');
+    } else if (rightDone && !leftDone) {
+        showFeedback('PC 2 verbunden! Jetzt PC 1 anschließen.', 'success');
     }
 }
 
@@ -4798,8 +4821,7 @@ function resetLevel4() {
     });
 
     // Bildschirme zurücksetzen
-    updateLevel4Screen('left', 'disconnected');
-    updateLevel4Screen('right', 'disconnected');
+    refreshLevel4Screens();
 
     // State zurücksetzen
     gameState.level4 = {
