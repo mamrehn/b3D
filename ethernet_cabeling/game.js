@@ -140,31 +140,61 @@ function setInstructionsText() {
 
 function autoAnimateCamera() {
     if (!controls || !camera) return;
-    const startAngle = Math.atan2(
-        camera.position.x - controls.target.x,
-        camera.position.z - controls.target.z
-    );
-    const radius = camera.position.distanceTo(controls.target);
-    const startY = camera.position.y;
-    const duration = 2000;
-    const startTime = Date.now();
-    const maxRotation = 0.3; // ~17 degrees total sweep
 
-    function animateOrbit() {
+    // Final (working) position — where the level scene set the camera
+    const endPos = camera.position.clone();
+    const endTarget = controls.target.clone();
+
+    // Start position: electrician approaching from further back at eye level (~1.7 units)
+    // Walk-in along Z axis (forward), slight offset for natural path
+    const startPos = new THREE.Vector3(
+        endPos.x + 0.5,       // slight lateral offset (natural gait)
+        Math.max(endPos.y, 1.7), // eye level, at least 1.7
+        endPos.z + 12          // 12 units further back
+    );
+    // Look straight ahead initially, then settle on the work target
+    const startTarget = new THREE.Vector3(
+        endTarget.x,
+        endTarget.y + 1,       // looking slightly higher at first (scanning the room)
+        endTarget.z
+    );
+
+    // Set camera to starting position
+    camera.position.copy(startPos);
+    controls.target.copy(startTarget);
+
+    const duration = 2500;
+    const startTime = Date.now();
+
+    // Ease-out cubic: fast start, gentle settle (feels like decelerating walk)
+    function easeOutCubic(t) {
+        return 1 - Math.pow(1 - t, 3);
+    }
+
+    function animateWalkIn() {
         const elapsed = Date.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        // Ease-in-out sine wave: swing right then back
-        const swing = Math.sin(progress * Math.PI) * maxRotation;
-        const angle = startAngle + swing;
-        camera.position.x = controls.target.x + radius * Math.sin(angle);
-        camera.position.z = controls.target.z + radius * Math.cos(angle);
-        camera.position.y = startY;
-        camera.lookAt(controls.target);
-        if (progress < 1) {
-            requestAnimationFrame(animateOrbit);
+        const t = Math.min(elapsed / duration, 1);
+        const e = easeOutCubic(t);
+
+        // Interpolate position: walk forward
+        camera.position.lerpVectors(startPos, endPos, e);
+
+        // Add subtle vertical bob for walking feel (2 steps over duration)
+        if (t < 0.85) {
+            const bobAmount = 0.04 * (1 - t); // diminish as we arrive
+            camera.position.y += Math.sin(t * Math.PI * 4) * bobAmount;
+        }
+
+        // Interpolate look target: gaze shifts from scanning to work area
+        controls.target.lerpVectors(startTarget, endTarget, e);
+
+        controls.update();
+
+        if (t < 1) {
+            requestAnimationFrame(animateWalkIn);
         }
     }
-    animateOrbit();
+    animateWalkIn();
 }
 
 function showLandscapeHint() {
