@@ -4472,11 +4472,15 @@ function createLevel4Verlegekabel() {
             new THREE.Vector3(midTechX, techLeftY - 0.02, techLeftZ),
             new THREE.Vector3(techLeftX + 1, techLeftY - 0.01, techLeftZ),
             new THREE.Vector3(techLeftX, techLeftY, techLeftZ),
-            // Austritt aus Kanal → direkt zum PP (Kanal y≈2.5, PP y=3.0)
+            // Austritt aus Kanal → seitlich am Rack vorbei → hinter das Rack → hoch zum PP
             new THREE.Vector3(techLeftX - 0.3, techLeftY, techLeftZ),
-            new THREE.Vector3(techLeftX - 0.8, techLeftY - 0.1, (techLeftZ + ppBackZ) / 2),
-            new THREE.Vector3(ppX, techLeftY - 0.1, ppBackZ + 0.1),
-            new THREE.Vector3(ppX, ppWorldY - 0.3, ppBackZ),
+            // Zum linken Rand des Racks (x = -2.8, knapp außerhalb)
+            new THREE.Vector3(-2.8, techLeftY - 0.05, techLeftZ),
+            // Am Rack-Rand entlang nach hinten (z Richtung PP-Rückseite)
+            new THREE.Vector3(-2.8, techLeftY - 0.1, (techLeftZ + ppBackZ) / 2),
+            new THREE.Vector3(-2.8, techLeftY - 0.15, ppBackZ),
+            // Innerhalb des Racks seitlich zum Port
+            new THREE.Vector3(ppX, ppWorldY - 0.5, ppBackZ),
             new THREE.Vector3(ppX, ppWorldY, ppBackZ)
         ]);
 
@@ -4495,32 +4499,41 @@ function createLevel4Verlegekabel() {
     const yellowEntryZ = techKanalZ;
     const techKanalLeftEdge = -10;   // linkes offenes Ende des Technikraum-Kabelkanals
 
+    // Sort cables so that PP ports with highest world-x exit the rack first (top)
+    // This prevents crossing: the cable closest to the rack edge exits at the top,
+    // the one farthest away exits at the bottom.
+    const rackEdgeX = -2.8;  // just outside left rack edge
+
     for (let i = 0; i < 20; i++) {
         const portIndex = i + 4;  // PP-Ports 5–24 (Index 4–23)
         const localPortX = -ppWidth / 2 + 0.3 + portIndex * ppPortSpacing;
         const ppX = -localPortX;  // PI-Rotation spiegelt X
 
-        // Zielposition im Kanal (gestaffelt nach links, weg vom Patchpanel)
+        // Spread at rack edge: each cable gets its own y and z slot
+        // Cable 0 (port 5, highest ppX) at top, cable 19 (port 24, lowest ppX) at bottom
+        const edgeT = i / 19;  // 0..1
+        const edgeY = ppWorldY - 0.3 - edgeT * (ppWorldY - yellowEntryY + 0.3);  // top to bottom
+        const edgeZ = ppBackZ + edgeT * 0.4;  // slight z spread front-to-back
+
+        // Zielposition im Kanal (gestaffelt nach links)
         const kanalTargetX = yellowEntryX - 0.5 - i * 0.4;
-        // Spread cables in a grid pattern (5 columns × 4 rows) to avoid overlap
         const col = i % 5;
         const row = Math.floor(i / 5);
-        const yOffset = (row - 1.5) * 0.1;   // 4 rows, spaced 0.1 apart
-        const zOffset = (col - 2) * 0.06;     // 5 columns, spaced 0.06 apart
-
-        // Unique x-offset at entry point based on column
-        const entryXOffset = col * 0.12;
-
-        // Sanfte Kurve: PP-Rückseite → direkt zum Kanal-Eintritt (fast gleiche Höhe)
-        const entryX = yellowEntryX + entryXOffset;
+        const yOffset = (row - 1.5) * 0.1;
+        const zOffset = (col - 2) * 0.06;
+        const entryX = yellowEntryX + col * 0.12;
 
         const curve = new THREE.CatmullRomCurve3([
-            // PP-Rückseite → sanft zum Kanal
+            // PP-Rückseite
             new THREE.Vector3(ppX, ppWorldY, ppBackZ),
-            new THREE.Vector3(ppX, ppWorldY - 0.3, ppBackZ),
-            new THREE.Vector3(ppX, yellowEntryY + 0.1 + yOffset, ppBackZ + 0.1),
-            new THREE.Vector3(entryX, yellowEntryY - 0.1 + yOffset, (ppBackZ + yellowEntryZ) / 2),
-            new THREE.Vector3(entryX, yellowEntryY + yOffset, yellowEntryZ - 0.1),
+            // Leicht nach unten, dann zum Rack-Rand (gestaffelte Höhe)
+            new THREE.Vector3(ppX, edgeY + 0.2, ppBackZ),
+            new THREE.Vector3(rackEdgeX + 0.3, edgeY, edgeZ),
+            // Am Rack-Rand: jedes Kabel auf eigener Höhe
+            new THREE.Vector3(rackEdgeX, edgeY, edgeZ),
+            // Vom Rack-Rand sanft zum Kabelkanal-Eintritt
+            new THREE.Vector3(rackEdgeX, yellowEntryY + 0.1 + yOffset, (edgeZ + yellowEntryZ) / 2),
+            new THREE.Vector3(entryX, yellowEntryY + yOffset, yellowEntryZ - 0.05),
             // Eintritt in Kanal
             new THREE.Vector3(entryX, yellowEntryY + yOffset, yellowEntryZ + zOffset),
             // Im Kanal nach links auffächern
