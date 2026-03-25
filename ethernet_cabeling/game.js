@@ -3914,7 +3914,7 @@ function createLevel4TechnikRack(wallBack) {
     // Gehäuse
     ppGroup.add(new THREE.Mesh(
         new THREE.BoxGeometry(ppWidth, ppHeight, ppDepth),
-        new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.6, metalness: 0.2 })
+        new THREE.MeshStandardMaterial({ color: 0x7799aa, roughness: 0.5, metalness: 0.3 })
     ));
 
     // 24 Ports (kleine schwarze Rechtecke, alle "verbunden" = grün markiert)
@@ -3923,7 +3923,7 @@ function createLevel4TechnikRack(wallBack) {
         const portX = -ppWidth / 2 + 0.3 + i * ppPortSpacing;
         const port = new THREE.Mesh(
             new THREE.BoxGeometry(0.12, 0.1, 0.08),
-            new THREE.MeshStandardMaterial({ color: 0x22aa22, roughness: 0.5 })
+            new THREE.MeshStandardMaterial({ color: 0x33cc33, emissive: 0x22aa22, emissiveIntensity: 0.3, roughness: 0.5 })
         );
         port.position.set(portX, 0, ppDepth / 2 + 0.04);
         ppGroup.add(port);
@@ -3944,10 +3944,10 @@ function createLevel4TechnikRack(wallBack) {
     createLevel4Label(rackGroup, 'Patchpanel 24-Port (aus Spiel-Level 3)', 0, 2.2, rackDepth / 2);
 
     // === Switch Büro 1 (Mitte) ===
-    createLevel4RackSwitch(rackGroup, 0, 0.3, rackDepth / 2 - 0.2, 0x1e3a5f, 'Switch Büro 1');
+    createLevel4RackSwitch(rackGroup, 0, 0.3, rackDepth / 2 - 0.2, 0x4488cc, 'Switch Büro 1');
 
     // === Switch Büro 2 (unten) ===
-    createLevel4RackSwitch(rackGroup, 0, -0.9, rackDepth / 2 - 0.2, 0x3f1e5f, 'Switch Büro 2');
+    createLevel4RackSwitch(rackGroup, 0, -0.9, rackDepth / 2 - 0.2, 0x9955cc, 'Switch Büro 2');
 
     // Patchkabel zwischen Patchpanel und Switches (grau, fertig verkabelt)
     // PP: y=1.5, Switch1: y=0.3, Switch2: y=-0.9 (jeweils in lokalen Rack-Koordinaten)
@@ -4008,8 +4008,12 @@ function createLevel4TechnikRack(wallBack) {
     scene.add(rackGroup);
 
     // Beleuchtung für den Technikraum
-    const techLight = new THREE.PointLight(0xccddff, 0.8, 15);
+    const techLight = new THREE.PointLight(0xeef0ff, 1.2, 20);
     techLight.position.set(0, 5, wallBack - 2);
+    // Zweites Licht näher am Rack für bessere Sichtbarkeit
+    const techLight2 = new THREE.PointLight(0xffffff, 0.6, 10);
+    techLight2.position.set(0, 3, wallBack - 1);
+    scene.add(techLight2);
     scene.add(techLight);
 }
 
@@ -4017,13 +4021,17 @@ function createLevel4RackSwitch(parent, x, y, z, color, name) {
     const switchGroup = new THREE.Group();
     const switchWidth = 3.5;
     const switchHeight = 0.45;
-    const switchDepth = 0.35;
+    const switchDepth = 0.8;
 
-    // Gehäuse
-    switchGroup.add(new THREE.Mesh(
+    // Gehäuse — nach hinten versetzt, damit Front bündig mit Patchpanel bleibt
+    // PP depth = 0.3, switch depth = 0.8 → Differenz/2 = 0.25 nach hinten
+    const bodyOffset = -(switchDepth - 0.3) / 2;  // -0.25
+    const body = new THREE.Mesh(
         new THREE.BoxGeometry(switchWidth, switchHeight, switchDepth),
         new THREE.MeshStandardMaterial({ color: color, roughness: 0.5, metalness: 0.3 })
-    ));
+    );
+    body.position.z = bodyOffset;
+    switchGroup.add(body);
 
     // Status-LEDs
     [0x22ff22, 0x22ff22, 0xffaa00].forEach((c, i) => {
@@ -4031,7 +4039,8 @@ function createLevel4RackSwitch(parent, x, y, z, color, name) {
             new THREE.CircleGeometry(0.02, 12),
             new THREE.MeshBasicMaterial({ color: c })
         );
-        led.position.set(-switchWidth / 2 + 0.12 + i * 0.08, switchHeight / 2 - 0.08, switchDepth / 2 + 0.01);
+        const frontZ = bodyOffset + switchDepth / 2;  // Vorderkante des Gehäuses
+        led.position.set(-switchWidth / 2 + 0.12 + i * 0.08, switchHeight / 2 - 0.08, frontZ + 0.01);
         switchGroup.add(led);
     });
 
@@ -4040,14 +4049,20 @@ function createLevel4RackSwitch(parent, x, y, z, color, name) {
     for (let i = 0; i < 16; i++) {
         const port = new THREE.Mesh(
             new THREE.BoxGeometry(0.12, 0.1, 0.08),
-            new THREE.MeshStandardMaterial({ color: i < 12 ? 0x22aa22 : 0x1a1a1a, roughness: 0.5 })
+            new THREE.MeshStandardMaterial({
+                color: i < 12 ? 0x33cc33 : 0x333333,
+                emissive: i < 12 ? 0x22aa22 : 0x000000,
+                emissiveIntensity: i < 12 ? 0.3 : 0,
+                roughness: 0.5
+            })
         );
-        port.position.set(-switchWidth / 2 + 0.3 + i * portSpacing, -0.03, switchDepth / 2 + 0.04);
+        const portFrontZ = bodyOffset + switchDepth / 2;
+        port.position.set(-switchWidth / 2 + 0.3 + i * portSpacing, -0.03, portFrontZ + 0.04);
         switchGroup.add(port);
     }
 
     // Label
-    createLevel4Label(switchGroup, name, 0, switchHeight / 2 + 0.3, switchDepth / 2);
+    createLevel4Label(switchGroup, name, 0, switchHeight / 2 + 0.3, bodyOffset + switchDepth / 2);
 
     switchGroup.position.set(x, y, z);
     parent.add(switchGroup);
