@@ -104,8 +104,8 @@ body {
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    font-size: 0.9rem;
+    padding: 0.6rem 0.85rem;
+    font-size: 1rem;
     font-weight: 500;
     border: none;
     border-radius: var(--radius);
@@ -158,7 +158,7 @@ body {
 
 .btn-large {
     padding: 0.75rem 1.5rem;
-    font-size: 1rem;
+    font-size: 1.1rem;
     width: 100%;
     justify-content: center;
 }
@@ -167,7 +167,7 @@ body {
     background: var(--bg-tertiary);
     color: var(--text-color);
     border: 1px solid var(--border-color);
-    font-size: 0.85rem;
+    font-size: 1rem;
     margin-top: 0.5rem;
 }
 
@@ -224,19 +224,21 @@ body {
 
 #instructions-overlay {
     position: absolute;
-    bottom: 0.5rem;
+    bottom: 0.75rem;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.7);
-    padding: 0.35rem 0.75rem;
+    background: rgba(0, 0, 0, 0.85);
+    padding: 0.5rem 1rem;
     border-radius: var(--radius);
-    font-size: 0.65rem;
-    color: var(--text-muted);
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #ffffff;
     max-width: 95%;
     text-align: center;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: background 0.3s ease;
 }
 
 /* ==========================================
@@ -271,14 +273,14 @@ body {
 }
 
 .panel h3 {
-    font-size: 0.9rem;
+    font-size: 1.1rem;
     font-weight: 600;
     margin-bottom: 0.5rem;
     color: var(--text-color);
 }
 
 .panel-description {
-    font-size: 0.8rem;
+    font-size: 1rem;
     color: var(--text-muted);
     margin-bottom: 0.5rem;
 }
@@ -302,7 +304,7 @@ body {
     border-radius: var(--radius);
     cursor: pointer;
     transition: all 0.2s ease;
-    font-size: 0.75rem;
+    font-size: 0.95rem;
     min-height: var(--touch-target);
 }
 
@@ -331,7 +333,7 @@ body {
 }
 
 .cable-core .core-name {
-    font-size: 0.65rem;
+    font-size: 0.85rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -380,7 +382,7 @@ body {
     padding: 0.4rem 0.5rem;
     background: var(--bg-tertiary);
     border-radius: var(--radius);
-    font-size: 0.8rem;
+    font-size: 1rem;
 }
 
 .socket-status-item span:last-child {
@@ -847,13 +849,13 @@ body {
 }
 
 .port-indicator .port-label {
-    font-size: 0.65rem;
+    font-size: 0.85rem;
     color: var(--text-muted);
     text-transform: uppercase;
 }
 
 .port-indicator .port-value {
-    font-size: 0.95rem;
+    font-size: 1.05rem;
     font-weight: bold;
     color: var(--text-color);
 }
@@ -868,7 +870,7 @@ body {
 }
 
 .hint-text {
-    font-size: 0.75rem;
+    font-size: 0.9rem;
     color: var(--text-muted);
     text-align: center;
     font-style: italic;
@@ -924,7 +926,7 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 0.3rem 0;
-    font-size: 0.8rem;
+    font-size: 1rem;
 }
 
 .assignment-row:first-child {
@@ -975,13 +977,13 @@ body {
     padding: 0.3rem 0.5rem;
     background: var(--bg-tertiary);
     border-radius: var(--radius);
-    font-size: 0.8rem;
+    font-size: 1rem;
 }
 
 .progress-label {
     flex-shrink: 0;
-    width: 55px;
-    font-size: 0.75rem;
+    width: 60px;
+    font-size: 0.9rem;
     color: var(--text-muted);
 }
 
@@ -1011,7 +1013,7 @@ body {
 .progress-count {
     flex-shrink: 0;
     font-weight: bold;
-    font-size: 0.75rem;
+    font-size: 0.9rem;
     min-width: 32px;
     text-align: right;
 }

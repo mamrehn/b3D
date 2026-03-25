@@ -1800,16 +1800,16 @@ function showFeedback(message, type) {
         overlay.textContent = message;
     }
     const bgColors = {
-        success: 'rgba(34, 197, 94, 0.8)',
-        warning: 'rgba(245, 158, 11, 0.8)',
-        info: 'rgba(37, 99, 235, 0.8)',
-        error: 'rgba(239, 68, 68, 0.8)'
+        success: 'rgba(22, 120, 55, 0.95)',
+        warning: 'rgba(160, 90, 0, 0.95)',
+        info: 'rgba(30, 70, 180, 0.95)',
+        error: 'rgba(180, 40, 40, 0.95)'
     };
     overlay.style.background = bgColors[type] || bgColors.info;
 
     setTimeout(() => {
         setInstructionsText();
-        overlay.style.background = 'rgba(0, 0, 0, 0.7)';
+        overlay.style.background = 'rgba(0, 0, 0, 0.85)';
     }, 2000);
 }
 
