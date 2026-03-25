@@ -3950,33 +3950,52 @@ function createLevel4TechnikRack(wallBack) {
     createLevel4RackSwitch(rackGroup, 0, -0.9, rackDepth / 2 - 0.2, 0x3f1e5f, 'Switch Büro 2');
 
     // Patchkabel zwischen Patchpanel und Switches (grau, fertig verkabelt)
+    // PP: y=1.5, Switch1: y=0.3, Switch2: y=-0.9 (jeweils in lokalen Rack-Koordinaten)
     const patchCableMaterial = new THREE.MeshStandardMaterial({ color: 0xB0B0B0, roughness: 0.5 });
-    // 12 Kabel von Patchpanel zu Switch 1
+    const switchWidth = 3.5;
+    const switchPortSpacing = (switchWidth - 0.6) / 15;  // 16 Ports
+    const ppFrontZ = rackDepth / 2 - 0.05;  // PP-Port Vorderseite
+    const cableLoopZ = rackDepth / 2 + 0.25;  // Bogen vor dem Rack
+
+    // 12 Kabel: PP Port 1–12 → Switch 1 Port 1–12
     for (let i = 0; i < 12; i++) {
-        const portX = -ppWidth / 2 + 0.3 + i * ppPortSpacing;
-        const switchPortX = -3.0 / 2 + 0.25 + i * (3.0 / 11);
+        const ppPortX = -ppWidth / 2 + 0.3 + i * ppPortSpacing;
+        const swPortX = -switchWidth / 2 + 0.3 + i * switchPortSpacing;
+        // Individueller z-Versatz damit Kabel sich nicht überlagern
+        const loopZ = cableLoopZ + (i / 11) * 0.15;
+
         const curve = new THREE.CatmullRomCurve3([
-            new THREE.Vector3(portX, 1.5, rackDepth / 2 - 0.05),
-            new THREE.Vector3(portX, 1.2, rackDepth / 2 + 0.2),
-            new THREE.Vector3(switchPortX, 0.6, rackDepth / 2 + 0.2),
-            new THREE.Vector3(switchPortX, 0.3, rackDepth / 2 - 0.05)
+            new THREE.Vector3(ppPortX, 1.5, ppFrontZ),           // PP-Port
+            new THREE.Vector3(ppPortX, 1.45, ppFrontZ + 0.08),   // Leicht nach vorne
+            new THREE.Vector3(ppPortX, 1.3, loopZ),              // Bogen
+            new THREE.Vector3((ppPortX + swPortX) / 2, 0.9, loopZ),  // Mitte übergang
+            new THREE.Vector3(swPortX, 0.55, loopZ),             // Vor Switch
+            new THREE.Vector3(swPortX, 0.35, ppFrontZ + 0.08),   // Zurück
+            new THREE.Vector3(swPortX, 0.3, ppFrontZ)            // Switch-Port
         ]);
         rackGroup.add(new THREE.Mesh(
-            new THREE.TubeGeometry(curve, 12, 0.02, 6, false), patchCableMaterial
+            new THREE.TubeGeometry(curve, 24, 0.018, 6, false), patchCableMaterial
         ));
     }
-    // 12 Kabel von Patchpanel zu Switch 2
+
+    // 12 Kabel: PP Port 13–24 → Switch 2 Port 1–12
     for (let i = 0; i < 12; i++) {
-        const portX = -ppWidth / 2 + 0.3 + (i + 12) * ppPortSpacing;
-        const switchPortX = -3.0 / 2 + 0.25 + i * (3.0 / 11);
+        const ppPortX = -ppWidth / 2 + 0.3 + (i + 12) * ppPortSpacing;
+        const swPortX = -switchWidth / 2 + 0.3 + i * switchPortSpacing;
+        // Größerer z-Bogen da diese Kabel weiter gehen (über Switch 1 hinweg)
+        const loopZ = cableLoopZ + 0.2 + (i / 11) * 0.15;
+
         const curve = new THREE.CatmullRomCurve3([
-            new THREE.Vector3(portX, 1.5, rackDepth / 2 - 0.05),
-            new THREE.Vector3(portX, 1.0, rackDepth / 2 + 0.3),
-            new THREE.Vector3(switchPortX, -0.3, rackDepth / 2 + 0.3),
-            new THREE.Vector3(switchPortX, -0.9, rackDepth / 2 - 0.05)
+            new THREE.Vector3(ppPortX, 1.5, ppFrontZ),              // PP-Port
+            new THREE.Vector3(ppPortX, 1.4, ppFrontZ + 0.1),        // Leicht nach vorne
+            new THREE.Vector3(ppPortX, 1.15, loopZ),                 // Bogen raus
+            new THREE.Vector3((ppPortX + swPortX) / 2, 0.1, loopZ),  // Mitte (an Switch 1 vorbei)
+            new THREE.Vector3(swPortX, -0.55, loopZ),                // Vor Switch 2
+            new THREE.Vector3(swPortX, -0.8, ppFrontZ + 0.1),       // Zurück
+            new THREE.Vector3(swPortX, -0.9, ppFrontZ)              // Switch 2-Port
         ]);
         rackGroup.add(new THREE.Mesh(
-            new THREE.TubeGeometry(curve, 12, 0.02, 6, false), patchCableMaterial
+            new THREE.TubeGeometry(curve, 24, 0.018, 6, false), patchCableMaterial
         ));
     }
 
