@@ -4403,8 +4403,8 @@ function createLevel4Kabelkanal() {
     // ========== Labels ==========
     createLevel4Label(scene, 'Kabelkanal (aus Spiel-Level 1)', 0, 3.45, -1.35);
 
-    // "Zum Patchpanel" am rechten offenen Ende
-    createLevel4Label(scene, '→ zum Patchpanel (aus Spiel-Level 3)', kanalWidth / 2 - 0.5, 2.5, -1.35);
+    // "Zum Patchpanel" — rechts neben der Wand, damit es nicht in den Kanal/die Wand ragt
+    createLevel4Label(scene, '→ zum Patchpanel (aus Spiel-Level 3)', 11.5, 2.5, -1.35);
 }
 
 function createLevel4PatchCables() {
