@@ -3763,40 +3763,110 @@ function createLevel4Room() {
     techFloor.position.set(0, -1.5, wallBack - techFloorDepth / 2);
     scene.add(techFloor);
 
-    // Rückwand (Box mit Dicke)
-    const wallGeometry = new THREE.BoxGeometry(20, 10, wallThick);
+    // Rückwand mit echtem Wanddurchbruch (Loch für Kabel)
     const wallMaterial = new THREE.MeshStandardMaterial({
         color: 0xe8e0d0,
         roughness: 0.9
     });
-    const backWall = new THREE.Mesh(wallGeometry, wallMaterial);
-    backWall.position.set(0, 3.5, wallZ);
-    backWall.receiveShadow = true;
-    scene.add(backWall);
 
-    // Wanddurchbruch (visuell): dunkles Rechteck am rechten Rand wo Kabel durchgehen
     const durchbruchWidth = 0.8;
     const durchbruchHeight = 0.6;
-    const durchbruchX = 8;  // nahe rechtem Rand
+    const durchbruchX = 9;   // ganz rechts am Wandrand
     const durchbruchY = 2.5; // gleiche Höhe wie Kabelkanal
-    const durchbruchMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.9 });
 
-    // Vorderseite (Büro)
-    const durchbruchFront = new THREE.Mesh(
-        new THREE.PlaneGeometry(durchbruchWidth, durchbruchHeight),
-        durchbruchMaterial
-    );
-    durchbruchFront.position.set(durchbruchX, durchbruchY, wallFront + 0.01);
-    scene.add(durchbruchFront);
+    // Wand-Abmessungen: 20 breit, 10 hoch, Zentrum bei (0, 3.5)
+    const wallW = 20, wallH = 10;
+    const wallBottom = 3.5 - wallH / 2;  // -1.5
+    const wallTop = 3.5 + wallH / 2;     // 8.5
+    const wallLeft = -wallW / 2;          // -10
+    const wallRight = wallW / 2;          // 10
 
-    // Rückseite (Technikraum)
-    const durchbruchBack = new THREE.Mesh(
-        new THREE.PlaneGeometry(durchbruchWidth, durchbruchHeight),
-        durchbruchMaterial
+    const holeLeft = durchbruchX - durchbruchWidth / 2;   // 8.6
+    const holeRight = durchbruchX + durchbruchWidth / 2;   // 9.4
+    const holeBottom = durchbruchY - durchbruchHeight / 2; // 2.2
+    const holeTop = durchbruchY + durchbruchHeight / 2;    // 2.8
+
+    // Wand links vom Loch
+    const leftW = holeLeft - wallLeft;
+    const leftPiece = new THREE.Mesh(
+        new THREE.BoxGeometry(leftW, wallH, wallThick), wallMaterial
     );
-    durchbruchBack.position.set(durchbruchX, durchbruchY, wallBack - 0.01);
-    durchbruchBack.rotation.y = Math.PI;
-    scene.add(durchbruchBack);
+    leftPiece.position.set(wallLeft + leftW / 2, 3.5, wallZ);
+    leftPiece.receiveShadow = true;
+    scene.add(leftPiece);
+
+    // Wand rechts vom Loch
+    const rightW = wallRight - holeRight;
+    const rightPiece = new THREE.Mesh(
+        new THREE.BoxGeometry(rightW, wallH, wallThick), wallMaterial
+    );
+    rightPiece.position.set(holeRight + rightW / 2, 3.5, wallZ);
+    rightPiece.receiveShadow = true;
+    scene.add(rightPiece);
+
+    // Wand über dem Loch
+    const aboveH = wallTop - holeTop;
+    const abovePiece = new THREE.Mesh(
+        new THREE.BoxGeometry(durchbruchWidth, aboveH, wallThick), wallMaterial
+    );
+    abovePiece.position.set(durchbruchX, holeTop + aboveH / 2, wallZ);
+    abovePiece.receiveShadow = true;
+    scene.add(abovePiece);
+
+    // Wand unter dem Loch
+    const belowH = holeBottom - wallBottom;
+    const belowPiece = new THREE.Mesh(
+        new THREE.BoxGeometry(durchbruchWidth, belowH, wallThick), wallMaterial
+    );
+    belowPiece.position.set(durchbruchX, wallBottom + belowH / 2, wallZ);
+    belowPiece.receiveShadow = true;
+    scene.add(belowPiece);
+
+    // Innenwände des Durchbruchs (Tunnelseiten)
+    const tunnelMaterial = new THREE.MeshStandardMaterial({ color: 0xbbbbbb, roughness: 0.9 });
+
+    // Oben (Decke des Tunnels)
+    const tunnelTop = new THREE.Mesh(
+        new THREE.BoxGeometry(durchbruchWidth, wallThick, 0.02), tunnelMaterial
+    );
+    tunnelTop.position.set(durchbruchX, holeTop, wallZ);
+    scene.add(tunnelTop);
+
+    // Unten (Boden des Tunnels)
+    const tunnelBottom = new THREE.Mesh(
+        new THREE.BoxGeometry(durchbruchWidth, wallThick, 0.02), tunnelMaterial
+    );
+    tunnelBottom.position.set(durchbruchX, holeBottom, wallZ);
+    scene.add(tunnelBottom);
+
+    // Links (linke Seite des Tunnels)
+    const tunnelLeft = new THREE.Mesh(
+        new THREE.BoxGeometry(0.02, durchbruchHeight, wallThick), tunnelMaterial
+    );
+    tunnelLeft.position.set(holeLeft, durchbruchY, wallZ);
+    scene.add(tunnelLeft);
+
+    // Rechts (rechte Seite des Tunnels)
+    const tunnelRight = new THREE.Mesh(
+        new THREE.BoxGeometry(0.02, durchbruchHeight, wallThick), tunnelMaterial
+    );
+    tunnelRight.position.set(holeRight, durchbruchY, wallZ);
+    scene.add(tunnelRight);
+
+    // 4 orange Kabel durch den Wanddurchbruch
+    const durchbruchCableMaterial = new THREE.MeshStandardMaterial({ color: 0xFF8C00, roughness: 0.6 });
+    for (let i = 0; i < 4; i++) {
+        const xOff = durchbruchX + (i - 1.5) * 0.12;
+        const yOff = durchbruchY + (i % 2 === 0 ? 0.08 : -0.08);
+        const curve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(xOff, yOff, wallFront + 0.05),
+            new THREE.Vector3(xOff, yOff, wallZ),
+            new THREE.Vector3(xOff, yOff, wallBack - 0.05)
+        ]);
+        scene.add(new THREE.Mesh(
+            new THREE.TubeGeometry(curve, 8, 0.03, 6, false), durchbruchCableMaterial
+        ));
+    }
 
     // Technikraum-Schild
     createLevel4Label(scene, 'Technikraum', 0, 7.0, wallBack - 0.2);
@@ -3975,7 +4045,8 @@ function createLevel4RackSwitch(parent, x, y, z, color, name) {
 }
 
 function createLevel4TechnikKabelkanal(wallBack, durchbruchX, durchbruchY) {
-    // Kabelkanal im Technikraum: von Wanddurchbruch nach links zum Rack
+    // Kabelkanal im Technikraum: U-förmig, offen zur Wand (Rückseite),
+    // Frontabdeckung entfernt (liegt am Boden angelehnt an der Wand)
     // 4 orange Verlegekabel laufen darin vom Durchbruch zum Patchpanel
     const kanalGroup = new THREE.Group();
 
@@ -4002,27 +4073,15 @@ function createLevel4TechnikKabelkanal(wallBack, durchbruchX, durchbruchY) {
         return m;
     })());
 
-    // Rückwand (an der Technikraum-Wand)
-    kanalGroup.add((() => {
-        const m = new THREE.Mesh(new THREE.BoxGeometry(kanalWidth, kanalHeight, wt), kanalMaterial);
-        m.position.set(0, 0, -kanalDepth / 2 + wt / 2);
-        return m;
-    })());
-
-    // Vordere Abdeckung (durchgängig, kein Dosen-Ausschnitt nötig)
-    kanalGroup.add((() => {
-        const m = new THREE.Mesh(new THREE.BoxGeometry(kanalWidth, kanalHeight - 0.02, wt), kanalMaterial);
-        m.position.set(0, 0, kanalDepth / 2 - wt / 2);
-        return m;
-    })());
+    // Keine Rückwand — U-förmig, offen zur Wand hin
+    // Keine Frontabdeckung — entfernt für Wartung (liegt am Boden)
 
     // Keine Endkappen — offen an beiden Seiten
 
     // 4 orange Verlegekabel im Kanal
-    // Kommen vom Wanddurchbruch (rechte Seite) und laufen nach links Richtung Rack (x=0)
     const cableMaterial = new THREE.MeshStandardMaterial({ color: 0xFF8C00, roughness: 0.6 });
-    const cableRightX = durchbruchX;   // wo die Kabel aus der Wand kommen (lokal)
-    const cableLeftX = -2;             // enden kurz vor der Stelle wo sie nach unten zum Rack gehen
+    const cableRightX = durchbruchX;
+    const cableLeftX = -2;
 
     for (let i = 0; i < 4; i++) {
         const yOff = -0.2 + i * 0.1;
@@ -4038,11 +4097,23 @@ function createLevel4TechnikKabelkanal(wallBack, durchbruchX, durchbruchY) {
         ));
     }
 
-    // Position: Rückseite des Kanals berührt die Wandrückseite
-    // kanalDepth=0.4, Rückwand lokal bei z=-0.17, Gruppe z = wallBack - 0.17...
-    // Einfacher: Kanalmitte bei wallBack - kanalDepth/2
+    // Position: offene Seite zeigt zur Wand (positive z = Richtung Wand)
+    // Kanal-Front (lokal +z) zeigt in den Technikraum hinein
     kanalGroup.position.set(0, durchbruchY, wallBack - kanalDepth / 2);
     scene.add(kanalGroup);
+
+    // Abgenommene Frontabdeckung (Deckel) — liegt am Boden, leicht schräg an die Wand gelehnt
+    const deckelGroup = new THREE.Group();
+    const deckel = new THREE.Mesh(
+        new THREE.BoxGeometry(kanalWidth, kanalHeight - 0.02, wt),
+        kanalMaterial
+    );
+    deckelGroup.add(deckel);
+    // Am Boden (y=-1.5), Unterkante berührt den Boden, leicht nach hinten geneigt (~15°)
+    deckelGroup.position.set(0, -1.5 + (kanalHeight - 0.02) / 2 * Math.cos(0.25) + 0.02, wallBack - 0.1);
+    deckelGroup.rotation.x = -0.25;  // leicht nach hinten an die Wand gelehnt
+    scene.add(deckelGroup);
+    createLevel4Label(scene, 'Kabelkanal-Deckel (abgenommen)', 5.5, -1.0, wallBack - 2);
 
     // Kabel vom Kabelkanal-Ausgang (links) herunter zum Patchpanel
     // Rack ist bei (0, 1.5, wallBack-2), rotiert um PI, PP bei rackLocalY=1.5
@@ -4256,11 +4327,7 @@ function createLevel4Kabelkanal() {
     decke.position.set(0, kanalHeight / 2, 0);
     kanalGroup.add(decke);
 
-    // Rückwand
-    const rueckwandGeometry = new THREE.BoxGeometry(kanalWidth, kanalHeight, wallThickness);
-    const rueckwand = new THREE.Mesh(rueckwandGeometry, kanalMaterial);
-    rueckwand.position.set(0, 0, -kanalDepth / 2 + wallThickness / 2);
-    kanalGroup.add(rueckwand);
+    // Keine Rückwand — Kabelkanal ist U-förmig (offen zur Wand hin, realistisch)
 
     // Vordere Abdeckung — 3 Segmente (links von DD1, zwischen DD1 und DD2, rechts von DD2)
     const frontZ = kanalDepth / 2 - wallThickness / 2;
@@ -4403,8 +4470,9 @@ function createLevel4Kabelkanal() {
     // ========== Labels ==========
     createLevel4Label(scene, 'Kabelkanal (aus Spiel-Level 1)', 0, 3.45, -1.35);
 
-    // "Zum Patchpanel" — rechts neben der Wand, damit es nicht in den Kanal/die Wand ragt
-    createLevel4Label(scene, '→ zum Patchpanel (aus Spiel-Level 3)', 11.5, 2.5, -1.35);
+    // "Zum Patchpanel" und "Wanddurchbruch" — rechts neben der Wand, unterhalb der Kabelkanäle
+    createLevel4Label(scene, '→ zum Patchpanel (aus Spiel-Level 3)', 11.5, 1.2, -1.35);
+    createLevel4Label(scene, 'Wanddurchbruch', 11.5, 0.6, -1.35);
 }
 
 function createLevel4PatchCables() {
