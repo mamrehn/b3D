@@ -2218,16 +2218,21 @@ function resetLevel3() {
     // Port-Zustände zurücksetzen
     patchPortMeshes.forEach(port => {
         port.userData.isConnected = false;
-        port.material.color = new THREE.Color(0x1a1a1a);
+        port.material.color = new THREE.Color(0x333333);
         port.material.emissive = new THREE.Color(0x000000);
+        port.material.emissiveIntensity = 0;
     });
     switch1PortMeshes.forEach(port => {
         port.userData.isConnected = false;
-        port.material.color = new THREE.Color(0x1a1a1a);
+        port.material.color = new THREE.Color(0x333333);
+        port.material.emissive = new THREE.Color(0x000000);
+        port.material.emissiveIntensity = 0;
     });
     switch2PortMeshes.forEach(port => {
         port.userData.isConnected = false;
-        port.material.color = new THREE.Color(0x1a1a1a);
+        port.material.color = new THREE.Color(0x333333);
+        port.material.emissive = new THREE.Color(0x000000);
+        port.material.emissiveIntensity = 0;
     });
 
     // Level 3 State zurücksetzen
@@ -3317,51 +3322,87 @@ function handleLevel3Click() {
     }
 }
 
+function clearLevel3Selection() {
+    if (gameState.level3.selectedPatchPort) {
+        gameState.level3.selectedPatchPort.material.emissive = new THREE.Color(0x000000);
+        gameState.level3.selectedPatchPort = null;
+    }
+    if (gameState.level3.selectedSwitchPort) {
+        gameState.level3.selectedSwitchPort.material.emissive = new THREE.Color(0x000000);
+        gameState.level3.selectedSwitchPort = null;
+    }
+}
+
 function handlePatchPortClick(port, portData) {
     if (portData.isConnected) {
         showFeedback('Dieser Port ist bereits verbunden!', 'warning');
         return;
     }
 
-    // Vorherige Auswahl zurücksetzen
-    if (gameState.level3.selectedPatchPort) {
-        gameState.level3.selectedPatchPort.material.emissive = new THREE.Color(0x000000);
+    // Wenn bereits ein Switch-Port ausgewählt ist → Verbindung herstellen
+    if (gameState.level3.selectedSwitchPort) {
+        const switchData = gameState.level3.selectedSwitchPort.userData;
+        // Prüfen ob richtiger Switch
+        if (portData.targetSwitch !== switchData.switchNum) {
+            const correctSwitch = portData.targetSwitch === 1 ? 'Switch 1' : 'Switch 2';
+            showFeedback(`Port ${portData.portNum} gehört zu ${correctSwitch}, nicht zu Switch ${switchData.switchNum}`, 'warning');
+            return;
+        }
+        createPatchCableConnection(port, gameState.level3.selectedSwitchPort);
+        return;
     }
+
+    // Vorherige Patchpanel-Auswahl zurücksetzen
+    clearLevel3Selection();
 
     // Port auswählen
     gameState.level3.selectedPatchPort = port;
     port.material.emissive = new THREE.Color(0x4444ff);
     port.material.emissiveIntensity = 0.5;
 
-    // UI aktualisieren
     updateLevel3PortSelection();
-    
-    const targetSwitchName = portData.targetSwitch === 1 ? 'Switch Büro 1' : 'Switch Büro 2';
-    showFeedback(`Port ${portData.portNum} ausgewählt → ${targetSwitchName}`, 'info');
+    const targetSwitchName = portData.targetSwitch === 1 ? 'Switch 1' : 'Switch 2';
+    showFeedback(`PP Port ${portData.portNum} ausgewählt → ${targetSwitchName}`, 'info');
 }
 
 function handleSwitchPortClick(port, portData) {
-    if (!gameState.level3.selectedPatchPort) {
-        showFeedback('Wähle zuerst einen Patchpanel-Port!', 'warning');
-        return;
-    }
-
     if (portData.isConnected) {
         showFeedback('Dieser Switch-Port ist bereits verbunden!', 'warning');
         return;
     }
 
-    const patchPortData = gameState.level3.selectedPatchPort.userData;
-    
-    // Prüfen ob richtiger Switch gewählt wurde
-    if (patchPortData.targetSwitch !== portData.switchNum) {
-        const correctSwitch = patchPortData.targetSwitch === 1 ? 'Switch Büro 1' : 'Switch Büro 2';
-        showFeedback(`Falscher Switch! Port ${patchPortData.portNum} gehört zu ${correctSwitch}`, 'warning');
+    // Wenn bereits ein Patchpanel-Port ausgewählt ist → Verbindung herstellen
+    if (gameState.level3.selectedPatchPort) {
+        const patchPortData = gameState.level3.selectedPatchPort.userData;
+        if (patchPortData.targetSwitch !== portData.switchNum) {
+            const correctSwitch = patchPortData.targetSwitch === 1 ? 'Switch 1' : 'Switch 2';
+            showFeedback(`PP Port ${patchPortData.portNum} gehört zu ${correctSwitch}`, 'warning');
+            return;
+        }
+        createPatchCableConnection(gameState.level3.selectedPatchPort, port);
         return;
     }
 
-    // Verbindung herstellen
-    createPatchCableConnection(gameState.level3.selectedPatchPort, port);
+    // Wenn ein anderer Switch-Port ausgewählt ist → Switch-zu-Switch nicht erlaubt
+    if (gameState.level3.selectedSwitchPort) {
+        if (gameState.level3.selectedSwitchPort.userData.switchNum !== portData.switchNum ||
+            gameState.level3.selectedSwitchPort !== port) {
+            showFeedback('Switch-Ports können nicht untereinander verbunden werden!', 'warning');
+            return;
+        }
+    }
+
+    // Vorherige Auswahl zurücksetzen
+    clearLevel3Selection();
+
+    // Switch-Port auswählen
+    gameState.level3.selectedSwitchPort = port;
+    port.material.emissive = new THREE.Color(0x4444ff);
+    port.material.emissiveIntensity = 0.5;
+
+    updateLevel3PortSelection();
+    const switchName = portData.switchNum === 1 ? 'Switch 1' : 'Switch 2';
+    showFeedback(`${switchName} Port ${portData.portNum} ausgewählt → wähle PP-Port`, 'info');
 }
 
 function createPatchCableConnection(patchPort, switchPort) {
@@ -3435,6 +3476,7 @@ function createPatchCableConnection(patchPort, switchPort) {
 
     // Auswahl zurücksetzen
     gameState.level3.selectedPatchPort = null;
+    gameState.level3.selectedSwitchPort = null;
 
     // UI aktualisieren
     updateLevel3PortSelection();
@@ -3454,14 +3496,21 @@ function updateLevel3PortSelection() {
             patchIndicator.textContent = `Port ${portData.portNum}`;
             patchIndicator.classList.add('selected');
         } else {
-            patchIndicator.textContent = '-';
+            patchIndicator.textContent = '–';
             patchIndicator.classList.remove('selected');
         }
     }
 
     if (switchIndicator) {
-        switchIndicator.textContent = '-';
-        switchIndicator.classList.remove('selected');
+        if (gameState.level3.selectedSwitchPort) {
+            const portData = gameState.level3.selectedSwitchPort.userData;
+            const swName = portData.switchNum === 1 ? 'S1' : 'S2';
+            switchIndicator.textContent = `${swName} Port ${portData.portNum}`;
+            switchIndicator.classList.add('selected');
+        } else {
+            switchIndicator.textContent = '–';
+            switchIndicator.classList.remove('selected');
+        }
     }
 }
 
