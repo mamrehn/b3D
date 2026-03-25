@@ -3724,8 +3724,11 @@ function createLevel4Scene() {
     // Rechter PC
     createLevel4PC('right', 3.5);
 
-    // Kabelkanal mit eingebetteter Doppeldose und Verlegekabeln
+    // Kabelkanal mit eingebetteter Doppeldose
     createLevel4Kabelkanal();
+
+    // Durchgehende Verlegekabel (Doppeldosen → Büro-Kanal → Wanddurchbruch → Technik-Kanal → Patchpanel)
+    createLevel4Verlegekabel();
 
     // Patchkabel auf dem Tisch
     createLevel4PatchCables();
@@ -3853,20 +3856,7 @@ function createLevel4Room() {
     tunnelRight.position.set(holeRight, durchbruchY, wallZ);
     scene.add(tunnelRight);
 
-    // 4 orange Kabel durch den Wanddurchbruch
-    const durchbruchCableMaterial = new THREE.MeshStandardMaterial({ color: 0xFF8C00, roughness: 0.6 });
-    for (let i = 0; i < 4; i++) {
-        const xOff = durchbruchX + (i - 1.5) * 0.12;
-        const yOff = durchbruchY + (i % 2 === 0 ? 0.08 : -0.08);
-        const curve = new THREE.CatmullRomCurve3([
-            new THREE.Vector3(xOff, yOff, wallFront + 0.05),
-            new THREE.Vector3(xOff, yOff, wallZ),
-            new THREE.Vector3(xOff, yOff, wallBack - 0.05)
-        ]);
-        scene.add(new THREE.Mesh(
-            new THREE.TubeGeometry(curve, 8, 0.03, 6, false), durchbruchCableMaterial
-        ));
-    }
+    // (Durchgehende Verlegekabel werden in createLevel4Verlegekabel() erzeugt)
 
     // Technikraum-Schild
     createLevel4Label(scene, 'Technikraum', 0, 7.0, wallBack - 0.2);
@@ -4078,27 +4068,9 @@ function createLevel4TechnikKabelkanal(wallBack, durchbruchX, durchbruchY) {
 
     // Keine Endkappen — offen an beiden Seiten
 
-    // 4 orange Verlegekabel im Kanal
-    const cableMaterial = new THREE.MeshStandardMaterial({ color: 0xFF8C00, roughness: 0.6 });
-    const cableRightX = durchbruchX;
-    const cableLeftX = -2;
-
-    for (let i = 0; i < 4; i++) {
-        const yOff = -0.2 + i * 0.1;
-        const zOff = (i % 2 === 0 ? -0.06 : 0.06);
-        const curve = new THREE.CatmullRomCurve3([
-            new THREE.Vector3(cableRightX, yOff, zOff),
-            new THREE.Vector3(cableRightX * 0.6, yOff + 0.04, zOff),
-            new THREE.Vector3(cableRightX * 0.2, yOff - 0.02, zOff),
-            new THREE.Vector3(cableLeftX, yOff, zOff)
-        ]);
-        kanalGroup.add(new THREE.Mesh(
-            new THREE.TubeGeometry(curve, 24, 0.03, 6, false), cableMaterial
-        ));
-    }
+    // (Durchgehende Verlegekabel werden in createLevel4Verlegekabel() erzeugt)
 
     // Position: offene Seite zeigt zur Wand (positive z = Richtung Wand)
-    // Kanal-Front (lokal +z) zeigt in den Technikraum hinein
     kanalGroup.position.set(0, durchbruchY, wallBack - kanalDepth / 2);
     scene.add(kanalGroup);
 
@@ -4109,44 +4081,11 @@ function createLevel4TechnikKabelkanal(wallBack, durchbruchX, durchbruchY) {
         kanalMaterial
     );
     deckelGroup.add(deckel);
-    // Am Boden (y=-1.5), Unterkante berührt den Boden, leicht nach hinten geneigt (~15°)
     deckelGroup.position.set(0, -1.5 + (kanalHeight - 0.02) / 2 * Math.cos(0.25) + 0.02, wallBack - 0.1);
-    deckelGroup.rotation.x = -0.25;  // leicht nach hinten an die Wand gelehnt
+    deckelGroup.rotation.x = -0.25;
     scene.add(deckelGroup);
     createLevel4Label(scene, 'Kabelkanal-Deckel (abgenommen)', 5.5, -1.0, wallBack - 2);
 
-    // Kabel vom Kabelkanal-Ausgang (links) herunter zum Patchpanel
-    // Rack ist bei (0, 1.5, wallBack-2), rotiert um PI, PP bei rackLocalY=1.5
-    // In Weltkoords: Rack-Front (nach PI-Rotation) zeigt Richtung +z, PP-Front bei z = wallBack-2 + rackDepth/2
-    const rackZ = wallBack - 2;
-    const ppWorldY = 1.5 + 1.5;  // rackGroup.y + ppGroup.y = 1.5 + 1.5 = 3.0
-    const ppWorldZ = rackZ + 0.75 - 0.2;  // nach PI-Rotation: rackDepth/2 = 0.75, ppGroup.z offset
-    const ppWidth = 4.5;
-    const ppPortSpacing = (ppWidth - 0.6) / 23;
-    const kanalExitY = durchbruchY;
-    const kanalExitZ = wallBack - kanalDepth;
-
-    for (let i = 0; i < 4; i++) {
-        // PP-Port X: nach PI-Rotation wird X gespiegelt
-        const localPortX = -ppWidth / 2 + 0.3 + i * ppPortSpacing;
-        const worldPortX = -localPortX;  // PI-Rotation spiegelt X
-
-        const startX = cableLeftX;
-        const startY = kanalExitY + (-0.2 + i * 0.1);
-
-        const curve = new THREE.CatmullRomCurve3([
-            new THREE.Vector3(startX, startY, kanalExitZ),
-            new THREE.Vector3(startX - 0.5, startY - 0.3, kanalExitZ - 0.3),
-            new THREE.Vector3(worldPortX, ppWorldY + 0.5, ppWorldZ + 0.5),
-            new THREE.Vector3(worldPortX, ppWorldY, ppWorldZ)
-        ]);
-        scene.add(new THREE.Mesh(
-            new THREE.TubeGeometry(curve, 20, 0.03, 6, false), cableMaterial
-        ));
-    }
-
-    // Label
-    createLevel4Label(scene, 'Kabelkanal (aus Spiel-Level 1)', 0, durchbruchY + 0.7, wallBack - kanalDepth / 2);
 }
 
 function createLevel4Desk() {
@@ -4423,43 +4362,7 @@ function createLevel4Kabelkanal() {
         kanalGroup.add(doseGroup);
     });
 
-    // ========== Orange Verlegekabel im Kanal ==========
-    // 4 Kabel kommen von rechts (Serverraum), 2 gehen zu DD1, 2 zu DD2
-    const cableMaterial = new THREE.MeshStandardMaterial({
-        color: 0xFF8C00,
-        roughness: 0.6
-    });
-
-    const cableRightEdge = kanalWidth / 2;  // rechter offener Rand
-
-    // Kabel zu DD2 (kürzere Strecke: von rechts bis x=2.5)
-    [-0.05, 0.05].forEach((offsetZ, i) => {
-        const yOff = i === 0 ? 0.08 : -0.08;
-        const curve = new THREE.CatmullRomCurve3([
-            new THREE.Vector3(cableRightEdge, yOff, offsetZ),
-            new THREE.Vector3(cableRightEdge * 0.6, yOff + 0.04, offsetZ),
-            new THREE.Vector3(dd2X + 0.5, yOff - 0.02, offsetZ)
-        ]);
-        const cable = new THREE.Mesh(
-            new THREE.TubeGeometry(curve, 20, 0.035, 8, false), cableMaterial
-        );
-        kanalGroup.add(cable);
-    });
-
-    // Kabel zu DD1 (längere Strecke: von rechts durch den Kanal bis x=-2.5)
-    [-0.05, 0.05].forEach((offsetZ, i) => {
-        const yOff = i === 0 ? 0.15 : -0.15;
-        const curve = new THREE.CatmullRomCurve3([
-            new THREE.Vector3(cableRightEdge, yOff, offsetZ),
-            new THREE.Vector3(cableRightEdge * 0.5, yOff + 0.05, offsetZ),
-            new THREE.Vector3(0, yOff - 0.03, offsetZ),
-            new THREE.Vector3(dd1X + 0.5, yOff, offsetZ)
-        ]);
-        const cable = new THREE.Mesh(
-            new THREE.TubeGeometry(curve, 32, 0.035, 8, false), cableMaterial
-        );
-        kanalGroup.add(cable);
-    });
+    // (Durchgehende Verlegekabel werden in createLevel4Verlegekabel() erzeugt)
 
     // ========== Position des Kabelkanals ==========
     // Rückwand des Kanals berührt die Wandvorderseite (z=-1.85)
@@ -4468,11 +4371,170 @@ function createLevel4Kabelkanal() {
     scene.add(kanalGroup);
 
     // ========== Labels ==========
-    createLevel4Label(scene, 'Kabelkanal (aus Spiel-Level 1)', 0, 3.45, -1.35);
-
     // "Zum Patchpanel" und "Wanddurchbruch" — rechts neben der Wand, unterhalb der Kabelkanäle
     createLevel4Label(scene, '→ zum Patchpanel (aus Spiel-Level 3)', 11.5, 1.2, -1.35);
     createLevel4Label(scene, 'Wanddurchbruch', 11.5, 0.6, -1.35);
+}
+
+function createLevel4Verlegekabel() {
+    // 4 durchgehende orange Verlegekabel als Scene-Level-Objekte:
+    // Doppeldose → Büro-Kabelkanal → Wanddurchbruch → Technikraum-Kabelkanal → Patchpanel
+    //
+    // Kabel 0,1: DD1 (DD1-1, DD1-2) → Patchpanel Port 1,2
+    // Kabel 2,3: DD2 (DD2-1, DD2-2) → Patchpanel Port 3,4
+
+    const cableMaterial = new THREE.MeshStandardMaterial({ color: 0xFF8C00, roughness: 0.6 });
+
+    // Koordinaten-Referenzen (World-Space)
+    const bueroKanalY = 2.5;         // Büro-Kabelkanal Gruppe y
+    const bueroKanalZ = -1.65;       // Büro-Kabelkanal Gruppe z
+    const wallFront = -1.85;
+    const wallBack = -2.15;
+    const durchbruchX = 9;
+    const techKanalZ = -2.35;        // Technikraum-Kabelkanal Gruppe z
+
+    // Dosen-Positionen (Büro-Kabelkanal lokal = world, da Gruppe bei x=0)
+    const dd1X = -1.2;
+    const dd2X = 1.2;
+
+    // Patchpanel-Koordinaten (Rack bei (0, 1.5, -4.15), rotiert um PI)
+    // PI-Rotation: lokales z wird negiert → PP lokal z=0.55 → Welt z = rackZ - 0.55
+    const rackZ = wallBack - 2;      // -4.15
+    const ppWorldY = 1.5 + 1.5;      // 3.0
+    const ppLocalZ = 0.55;           // rackDepth/2 - 0.2
+    const ppWorldZ = rackZ - ppLocalZ;  // -4.7 (PP-Mitte nach PI-Rotation)
+    const ppBackZ = ppWorldZ + 0.15;   // Rückseite des PP-Gehäuses
+    const ppWidth = 4.5;
+    const ppPortSpacing = (ppWidth - 0.6) / 23;
+
+    // Kabel-Konfigurationen: [doseX, ppPortIndex]
+    const cables = [
+        { doseX: dd1X - 0.25, ppPort: 0 },  // DD1-1 → PP Port 1
+        { doseX: dd1X + 0.25, ppPort: 1 },  // DD1-2 → PP Port 2
+        { doseX: dd2X - 0.25, ppPort: 2 },  // DD2-1 → PP Port 3
+        { doseX: dd2X + 0.25, ppPort: 3 },  // DD2-2 → PP Port 4
+    ];
+
+    cables.forEach((cfg, i) => {
+        // y/z-Versatz damit Kabel nicht übereinander liegen
+        const yJitter = (i - 1.5) * 0.12;
+        const zJitter = (i % 2 === 0 ? -0.06 : 0.06);
+
+        // PP-Port X (PI-Rotation spiegelt X)
+        const localPortX = -ppWidth / 2 + 0.3 + cfg.ppPort * ppPortSpacing;
+        const ppX = -localPortX;
+
+        // Wegpunkte:
+        // 1. Hinter der Dose (im Büro-Kanal)
+        const startX = cfg.doseX;
+        const startY = bueroKanalY + yJitter;
+        const startZ = bueroKanalZ + zJitter;
+
+        // 2. Im Büro-Kanal nach rechts Richtung Wanddurchbruch
+        const kanalRightX = durchbruchX;
+        const kanalRightY = bueroKanalY + yJitter;
+        const kanalRightZ = bueroKanalZ + zJitter;
+
+        // 3. In den Wanddurchbruch (Büro-Seite)
+        const wallFrontY = bueroKanalY + yJitter;
+
+        // 4. Aus dem Wanddurchbruch (Technikraum-Seite)
+        const wallBackY = bueroKanalY + yJitter;
+
+        // 5. Im Technikraum-Kanal nach links
+        const techLeftX = -2;
+        const techLeftY = bueroKanalY + yJitter;
+        const techLeftZ = techKanalZ + zJitter;
+
+        // Gesamte Kurve: Dose → rechts im Büro-Kanal → Wanddurchbruch → Technik-Kanal → PP-Rückseite
+        // Viele Zwischenpunkte für weiche, realistische Biegungen
+        const midBueroX = (startX + kanalRightX) / 2;
+        const midTechX = (techLeftX + kanalRightX) / 2;
+
+        const curve = new THREE.CatmullRomCurve3([
+            // Büro-Kabelkanal: Dose → rechts
+            new THREE.Vector3(startX, startY, startZ),
+            new THREE.Vector3(startX + 1, startY + 0.02, startZ),
+            new THREE.Vector3(midBueroX, startY + 0.03, startZ),
+            new THREE.Vector3(kanalRightX - 1, kanalRightY + 0.01, kanalRightZ),
+            new THREE.Vector3(kanalRightX, kanalRightY, kanalRightZ),
+            // Übergang in Wanddurchbruch (sanfter S-Bogen in z)
+            new THREE.Vector3(durchbruchX, wallFrontY, (kanalRightZ + wallFront) / 2),
+            new THREE.Vector3(durchbruchX, wallFrontY, wallFront),
+            // Durch die Wand
+            new THREE.Vector3(durchbruchX, (wallFrontY + wallBackY) / 2, (wallFront + wallBack) / 2),
+            new THREE.Vector3(durchbruchX, wallBackY, wallBack),
+            // Übergang in Technikraum-Kabelkanal
+            new THREE.Vector3(durchbruchX, wallBackY, (wallBack + techKanalZ + zJitter) / 2),
+            new THREE.Vector3(kanalRightX, wallBackY, techKanalZ + zJitter),
+            // Technikraum-Kabelkanal: rechts → links
+            new THREE.Vector3(kanalRightX - 1, wallBackY - 0.01, techKanalZ + zJitter),
+            new THREE.Vector3(midTechX, techLeftY - 0.02, techLeftZ),
+            new THREE.Vector3(techLeftX + 1, techLeftY - 0.01, techLeftZ),
+            new THREE.Vector3(techLeftX, techLeftY, techLeftZ),
+            // Austritt aus Kanal → direkt zum PP (Kanal y≈2.5, PP y=3.0)
+            new THREE.Vector3(techLeftX - 0.3, techLeftY, techLeftZ),
+            new THREE.Vector3(techLeftX - 0.8, techLeftY - 0.1, (techLeftZ + ppBackZ) / 2),
+            new THREE.Vector3(ppX, techLeftY - 0.1, ppBackZ + 0.1),
+            new THREE.Vector3(ppX, ppWorldY - 0.3, ppBackZ),
+            new THREE.Vector3(ppX, ppWorldY, ppBackZ)
+        ]);
+
+        scene.add(new THREE.Mesh(
+            new THREE.TubeGeometry(curve, 128, 0.025, 8, false), cableMaterial
+        ));
+    });
+
+    // === 20 gelbe Verlegekabel (PP-Ports 5–24 → andere Dosen, links im Technik-Kabelkanal) ===
+    // Diese repräsentieren die übrigen Netzwerkdosen im Gebäude
+    const yellowMaterial = new THREE.MeshStandardMaterial({ color: 0xFFD700, roughness: 0.5 });
+
+    // Eintrittspunkt: knapp links neben dem Austrittspunkt der orange Kabel (techLeftX = -2)
+    const yellowEntryX = -2 - 0.8;  // leicht links vom Orange-Austritt
+    const yellowEntryY = bueroKanalY;
+    const yellowEntryZ = techKanalZ;
+    const techKanalLeftEdge = -10;   // linkes offenes Ende des Technikraum-Kabelkanals
+
+    for (let i = 0; i < 20; i++) {
+        const portIndex = i + 4;  // PP-Ports 5–24 (Index 4–23)
+        const localPortX = -ppWidth / 2 + 0.3 + portIndex * ppPortSpacing;
+        const ppX = -localPortX;  // PI-Rotation spiegelt X
+
+        // Zielposition im Kanal (gestaffelt nach links, weg vom Patchpanel)
+        const kanalTargetX = yellowEntryX - 0.5 - i * 0.4;
+        // Spread cables in a grid pattern (5 columns × 4 rows) to avoid overlap
+        const col = i % 5;
+        const row = Math.floor(i / 5);
+        const yOffset = (row - 1.5) * 0.1;   // 4 rows, spaced 0.1 apart
+        const zOffset = (col - 2) * 0.06;     // 5 columns, spaced 0.06 apart
+
+        // Unique x-offset at entry point based on column
+        const entryXOffset = col * 0.12;
+
+        // Sanfte Kurve: PP-Rückseite → direkt zum Kanal-Eintritt (fast gleiche Höhe)
+        const entryX = yellowEntryX + entryXOffset;
+
+        const curve = new THREE.CatmullRomCurve3([
+            // PP-Rückseite → sanft zum Kanal
+            new THREE.Vector3(ppX, ppWorldY, ppBackZ),
+            new THREE.Vector3(ppX, ppWorldY - 0.3, ppBackZ),
+            new THREE.Vector3(ppX, yellowEntryY + 0.1 + yOffset, ppBackZ + 0.1),
+            new THREE.Vector3(entryX, yellowEntryY - 0.1 + yOffset, (ppBackZ + yellowEntryZ) / 2),
+            new THREE.Vector3(entryX, yellowEntryY + yOffset, yellowEntryZ - 0.1),
+            // Eintritt in Kanal
+            new THREE.Vector3(entryX, yellowEntryY + yOffset, yellowEntryZ + zOffset),
+            // Im Kanal nach links auffächern
+            new THREE.Vector3((entryX + kanalTargetX) / 2, yellowEntryY + yOffset - 0.01, yellowEntryZ + zOffset),
+            new THREE.Vector3(kanalTargetX, yellowEntryY + yOffset, yellowEntryZ + zOffset),
+            // Zum linken offenen Ende
+            new THREE.Vector3((kanalTargetX + techKanalLeftEdge) / 2, yellowEntryY + yOffset - 0.01, yellowEntryZ + zOffset),
+            new THREE.Vector3(techKanalLeftEdge, yellowEntryY + yOffset, yellowEntryZ + zOffset)
+        ]);
+
+        scene.add(new THREE.Mesh(
+            new THREE.TubeGeometry(curve, 80, 0.025, 8, false), yellowMaterial
+        ));
+    }
 }
 
 function createLevel4PatchCables() {
