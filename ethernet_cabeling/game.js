@@ -2962,9 +2962,9 @@ function createPatchpanel24(parent, x, y, z) {
 
     const panelGeometry = new THREE.BoxGeometry(panelWidth, panelHeight, panelDepth);
     const panelMaterial = new THREE.MeshStandardMaterial({
-        color: 0x2a2a2a,
-        roughness: 0.6,
-        metalness: 0.2
+        color: 0x7799aa,
+        roughness: 0.5,
+        metalness: 0.3
     });
     const panel = new THREE.Mesh(panelGeometry, panelMaterial);
     panelGroup.add(panel);
@@ -2990,8 +2990,8 @@ function createPatchpanel24(parent, x, y, z) {
         // Port-Gehäuse
         const portGeometry = new THREE.BoxGeometry(portWidth, portHeight, 0.12);
         const portMaterial = new THREE.MeshStandardMaterial({
-            color: 0x1a1a1a,
-            roughness: 0.7
+            color: 0x333333,
+            roughness: 0.5
         });
         const port = new THREE.Mesh(portGeometry, portMaterial);
         port.position.set(portX, 0, panelDepth/2 + 0.07);
@@ -3024,24 +3024,29 @@ function createSwitch16(parent, x, y, z, switchNum, switchName) {
     const switchGroup = new THREE.Group();
     switchGroup.position.set(x, y, z);
 
-    // Switch-Gehäuse (1 HE) - für 16 Ports
-    const switchWidth = 7;
+    // Switch-Gehäuse (1 HE) - gleiche Breite wie Patchpanel (19" Rack)
+    const switchBoxWidth = 9;   // Gehäuse = Rack-Breite (wie Patchpanel)
+    const switchPortWidth = 7;  // Port-Bereich bleibt bei 16-Port-Spacing
     const switchHeight = 0.7;
-    const switchDepth = 0.5;
+    const switchDepth = 1.2;
 
-    // Unterschiedliche Farben für die Switches
+    // Unterschiedliche Farben für die Switches (heller, besser sichtbar)
     const switchColors = {
-        1: 0x1e3a5f,  // Dunkelblau für Switch 1
-        2: 0x3f1e5f   // Dunkelviolett für Switch 2
+        1: 0x4488cc,  // Blau für Switch 1
+        2: 0x9955cc   // Violett für Switch 2
     };
 
-    const switchGeometry = new THREE.BoxGeometry(switchWidth, switchHeight, switchDepth);
+    // Gehäuse nach hinten versetzt, Front bündig mit Patchpanel (panelDepth=0.4)
+    const bodyOffset = -(switchDepth - 0.4) / 2;
+
+    const switchGeometry = new THREE.BoxGeometry(switchBoxWidth, switchHeight, switchDepth);
     const switchMaterial = new THREE.MeshStandardMaterial({
         color: switchColors[switchNum],
         roughness: 0.5,
         metalness: 0.3
     });
     const switchBody = new THREE.Mesh(switchGeometry, switchMaterial);
+    switchBody.position.z = bodyOffset;
     switchGroup.add(switchBody);
 
     // Status-LEDs (links)
@@ -3050,7 +3055,8 @@ function createSwitch16(parent, x, y, z, switchNum, switchName) {
     ledColors.forEach((color, i) => {
         const ledMaterial = new THREE.MeshBasicMaterial({ color: color });
         const led = new THREE.Mesh(ledGeometry, ledMaterial);
-        led.position.set(-switchWidth/2 + 0.15 + i * 0.12, switchHeight/2 - 0.12, switchDepth/2 + 0.01);
+        const ledFrontZ = bodyOffset + switchDepth / 2;
+        led.position.set(-switchBoxWidth/2 + 0.15 + i * 0.12, switchHeight/2 - 0.12, ledFrontZ + 0.01);
         switchGroup.add(led);
     });
 
@@ -3058,8 +3064,8 @@ function createSwitch16(parent, x, y, z, switchNum, switchName) {
     const numPorts = 16;
     const portWidth = 0.3;
     const portHeight = 0.2;
-    const startX = -switchWidth/2 + 0.6;
-    const spacing = (switchWidth - 1.2) / (numPorts - 1);
+    const startX = -switchPortWidth/2 + 0.6;
+    const spacing = (switchPortWidth - 1.2) / (numPorts - 1);
 
     const portMeshArray = switchNum === 1 ? switch1PortMeshes : switch2PortMeshes;
 
@@ -3070,11 +3076,12 @@ function createSwitch16(parent, x, y, z, switchNum, switchName) {
         // Port-Gehäuse
         const portGeometry = new THREE.BoxGeometry(portWidth, portHeight, 0.12);
         const portMaterial = new THREE.MeshStandardMaterial({
-            color: 0x1a1a1a,
-            roughness: 0.7
+            color: 0x333333,
+            roughness: 0.5
         });
         const port = new THREE.Mesh(portGeometry, portMaterial);
-        port.position.set(portX, -0.05, switchDepth/2 + 0.07);
+        const portFrontZ = bodyOffset + switchDepth / 2;
+        port.position.set(portX, -0.05, portFrontZ + 0.07);
         port.userData = {
             type: 'switchPort',
             portNum: portNum,
@@ -3086,7 +3093,7 @@ function createSwitch16(parent, x, y, z, switchNum, switchName) {
 
         // Port-Nummer Labels (jeder 4. Port)
         if (portNum === 1 || portNum === 8 || portNum === 16 || portNum % 4 === 0) {
-            createSmallPortLabel(switchGroup, `${portNum}`, portX, 0.2, switchDepth/2 + 0.06);
+            createSmallPortLabel(switchGroup, `${portNum}`, portX, 0.2, portFrontZ + 0.06);
         }
     }
 
@@ -3152,20 +3159,20 @@ function createWallCables() {
 function createSmallPortLabel(parent, text, x, y, z) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    canvas.width = 64;
-    canvas.height = 32;
+    canvas.width = 128;
+    canvas.height = 64;
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 16px Arial';
+    ctx.font = 'bold 36px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, 32, 16);
+    ctx.fillText(text, 64, 32);
 
     const texture = new THREE.CanvasTexture(canvas);
     const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
     const sprite = new THREE.Sprite(spriteMaterial);
     sprite.position.set(x, y, z);
-    sprite.scale.set(0.3, 0.15, 1);
+    sprite.scale.set(0.5, 0.25, 1);
     parent.add(sprite);
 }
 
@@ -3392,11 +3399,14 @@ function createPatchCableConnection(patchPort, switchPort) {
 
     // Ports als verbunden markieren
     patchPort.userData.isConnected = true;
-    patchPort.material.color = new THREE.Color(0x22aa22);
-    patchPort.material.emissive = new THREE.Color(0x000000);
+    patchPort.material.color = new THREE.Color(0x33cc33);
+    patchPort.material.emissive = new THREE.Color(0x22aa22);
+    patchPort.material.emissiveIntensity = 0.3;
 
     switchPort.userData.isConnected = true;
-    switchPort.material.color = new THREE.Color(0x22aa22);
+    switchPort.material.color = new THREE.Color(0x33cc33);
+    switchPort.material.emissive = new THREE.Color(0x22aa22);
+    switchPort.material.emissiveIntensity = 0.3;
 
     // Verbindung speichern
     gameState.level3.connections.push({
@@ -4019,7 +4029,8 @@ function createLevel4TechnikRack(wallBack) {
 
 function createLevel4RackSwitch(parent, x, y, z, color, name) {
     const switchGroup = new THREE.Group();
-    const switchWidth = 3.5;
+    const switchBoxWidth = 4.5;   // Gehäuse = gleiche Breite wie Patchpanel (19" Rack)
+    const switchPortWidth = 3.5;  // Port-Bereich bleibt bei 16-Port-Spacing
     const switchHeight = 0.45;
     const switchDepth = 0.8;
 
@@ -4027,7 +4038,7 @@ function createLevel4RackSwitch(parent, x, y, z, color, name) {
     // PP depth = 0.3, switch depth = 0.8 → Differenz/2 = 0.25 nach hinten
     const bodyOffset = -(switchDepth - 0.3) / 2;  // -0.25
     const body = new THREE.Mesh(
-        new THREE.BoxGeometry(switchWidth, switchHeight, switchDepth),
+        new THREE.BoxGeometry(switchBoxWidth, switchHeight, switchDepth),
         new THREE.MeshStandardMaterial({ color: color, roughness: 0.5, metalness: 0.3 })
     );
     body.position.z = bodyOffset;
@@ -4040,12 +4051,12 @@ function createLevel4RackSwitch(parent, x, y, z, color, name) {
             new THREE.MeshBasicMaterial({ color: c })
         );
         const frontZ = bodyOffset + switchDepth / 2;  // Vorderkante des Gehäuses
-        led.position.set(-switchWidth / 2 + 0.12 + i * 0.08, switchHeight / 2 - 0.08, frontZ + 0.01);
+        led.position.set(-switchBoxWidth / 2 + 0.12 + i * 0.08, switchHeight / 2 - 0.08, frontZ + 0.01);
         switchGroup.add(led);
     });
 
     // 16 Ports (erste 12 grün = verbunden mit Patchpanel, letzte 4 dunkel = frei)
-    const portSpacing = (switchWidth - 0.6) / 15;
+    const portSpacing = (switchPortWidth - 0.6) / 15;
     for (let i = 0; i < 16; i++) {
         const port = new THREE.Mesh(
             new THREE.BoxGeometry(0.12, 0.1, 0.08),
@@ -4057,7 +4068,7 @@ function createLevel4RackSwitch(parent, x, y, z, color, name) {
             })
         );
         const portFrontZ = bodyOffset + switchDepth / 2;
-        port.position.set(-switchWidth / 2 + 0.3 + i * portSpacing, -0.03, portFrontZ + 0.04);
+        port.position.set(-switchPortWidth / 2 + 0.3 + i * portSpacing, -0.03, portFrontZ + 0.04);
         switchGroup.add(port);
     }
 
