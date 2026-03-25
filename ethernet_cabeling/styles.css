@@ -945,21 +945,80 @@ body {
 }
 
 .switch-name.switch1 {
-    background: rgba(30, 58, 95, 0.5);
+    background: rgba(68, 136, 204, 0.25);
     color: #6db3f2;
 }
 
 .switch-name.switch2 {
-    background: rgba(63, 30, 95, 0.5);
+    background: rgba(153, 85, 204, 0.25);
     color: #b86df2;
 }
 
 .switch1-status {
-    border-left: 3px solid #1e3a5f;
+    border-left: 3px solid #4488cc;
 }
 
 .switch2-status {
-    border-left: 3px solid #3f1e5f;
+    border-left: 3px solid #9955cc;
+}
+
+.level3-progress-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.progress-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.5rem;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius);
+    font-size: 0.8rem;
+}
+
+.progress-label {
+    flex-shrink: 0;
+    width: 55px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.progress-bar-container {
+    flex: 1;
+    height: 8px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: var(--success-color);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.progress-bar.switch1-bar {
+    background: #4488cc;
+}
+
+.progress-bar.switch2-bar {
+    background: #9955cc;
+}
+
+.progress-count {
+    flex-shrink: 0;
+    font-weight: bold;
+    font-size: 0.75rem;
+    min-width: 32px;
+    text-align: right;
+}
+
+.connection-arrow {
+    font-size: 1.25rem;
+    color: var(--success-color);
 }
 
 .socket-status-item.completed {

@@ -3218,31 +3218,29 @@ function updateLevel3UI() {
     const instructionsDiv = document.createElement('div');
     instructionsDiv.className = 'level3-instructions';
     instructionsDiv.innerHTML = `
-        <p class="panel-description"><strong>Verbinde alle 24 Patchpanel-Ports:</strong></p>
         <div class="switch-assignment">
             <div class="assignment-row">
-                <span class="port-range">Ports 1-12</span>
+                <span class="port-range">PP 1–12</span>
                 <span class="arrow">→</span>
-                <span class="switch-name switch1">Switch Büro 1</span>
+                <span class="switch-name switch1">Switch 1</span>
             </div>
             <div class="assignment-row">
-                <span class="port-range">Ports 13-24</span>
+                <span class="port-range">PP 13–24</span>
                 <span class="arrow">→</span>
-                <span class="switch-name switch2">Switch Büro 2</span>
+                <span class="switch-name switch2">Switch 2</span>
             </div>
         </div>
         <div class="connection-guide">
             <div class="port-indicator" id="selected-patch">
-                <span class="port-label">Patchpanel:</span>
-                <span class="port-value">-</span>
+                <span class="port-label">Patchpanel</span>
+                <span class="port-value">–</span>
             </div>
-            <div class="arrow">→</div>
+            <div class="connection-arrow">→</div>
             <div class="port-indicator" id="selected-switch">
-                <span class="port-label">Switch:</span>
-                <span class="port-value">-</span>
+                <span class="port-label">Switch</span>
+                <span class="port-value">–</span>
             </div>
         </div>
-        <p class="hint-text">💡 ${isTouchDevice() ? 'Tippe auf' : 'Klicke auf'} einen Patchpanel-Port, dann auf den passenden Switch-Port</p>
     `;
     cableCoresContainer.appendChild(instructionsDiv);
 
@@ -3253,20 +3251,31 @@ function updateLevel3UI() {
     const socketStatus = document.getElementById('socket-status');
     socketStatus.innerHTML = `
         <div class="socket-status-item timer-display">
-            <span>⏱️ Zeit:</span>
+            <span>⏱️ Restzeit</span>
             <span id="level3-timer">${formatTime(gameState.level3.timeRemaining)}</span>
         </div>
-        <div class="socket-status-item">
-            <span>🔗 Verbindungen:</span>
-            <span id="level3-connections">0/${gameState.level3.requiredConnections}</span>
-        </div>
-        <div class="socket-status-item switch1-status">
-            <span>📦 Switch Büro 1:</span>
-            <span id="switch1-connections">0/12</span>
-        </div>
-        <div class="socket-status-item switch2-status">
-            <span>📦 Switch Büro 2:</span>
-            <span id="switch2-connections">0/12</span>
+        <div class="level3-progress-grid">
+            <div class="progress-item">
+                <span class="progress-label">Gesamt</span>
+                <span class="progress-bar-container">
+                    <span class="progress-bar" id="level3-progress-bar" style="width: 0%"></span>
+                </span>
+                <span class="progress-count" id="level3-connections">0/${gameState.level3.requiredConnections}</span>
+            </div>
+            <div class="progress-item switch1-status">
+                <span class="progress-label">Switch 1</span>
+                <span class="progress-bar-container">
+                    <span class="progress-bar switch1-bar" id="switch1-progress-bar" style="width: 0%"></span>
+                </span>
+                <span class="progress-count" id="switch1-connections">0/12</span>
+            </div>
+            <div class="progress-item switch2-status">
+                <span class="progress-label">Switch 2</span>
+                <span class="progress-bar-container">
+                    <span class="progress-bar switch2-bar" id="switch2-progress-bar" style="width: 0%"></span>
+                </span>
+                <span class="progress-count" id="switch2-connections">0/12</span>
+            </div>
         </div>
     `;
 
@@ -3485,6 +3494,14 @@ function updateLevel3Progress() {
             switch2El.parentElement.classList.add('completed');
         }
     }
+
+    // Progress bars aktualisieren
+    const totalBar = document.getElementById('level3-progress-bar');
+    if (totalBar) totalBar.style.width = `${(totalConnections / gameState.level3.requiredConnections) * 100}%`;
+    const sw1Bar = document.getElementById('switch1-progress-bar');
+    if (sw1Bar) sw1Bar.style.width = `${(switch1Count / 12) * 100}%`;
+    const sw2Bar = document.getElementById('switch2-progress-bar');
+    if (sw2Bar) sw2Bar.style.width = `${(switch2Count / 12) * 100}%`;
 
     // Undo-Button aktivieren wenn Verbindungen vorhanden
     const undoBtn = document.getElementById('undo-btn');
