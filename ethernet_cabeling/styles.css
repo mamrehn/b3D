@@ -294,6 +294,10 @@ body {
     gap: 0.4rem;
 }
 
+#cable-cores .level3-instructions {
+    grid-column: 1 / -1;
+}
+
 .cable-core {
     display: flex;
     align-items: center;
