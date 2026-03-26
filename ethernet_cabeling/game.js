@@ -2825,8 +2825,8 @@ function updateLevel1Progress() {
 // ============================================
 
 function createLevel3Scene() {
-    // Beleuchtung
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    // Beleuchtung (wie Level 4 Technikraum)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
 
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
@@ -2839,6 +2839,16 @@ function createLevel3Scene() {
     const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
     fillLight.position.set(-10, 5, -5);
     scene.add(fillLight);
+
+    // Punktlicht über dem Rack (Deckenbeleuchtung Technikraum)
+    const rackLight = new THREE.PointLight(0xeef0ff, 1.2, 25);
+    rackLight.position.set(0, 8, 0);
+    scene.add(rackLight);
+
+    // Zweites Licht näher am Rack für bessere Sichtbarkeit der Ports
+    const rackFillLight = new THREE.PointLight(0xffffff, 0.6, 15);
+    rackFillLight.position.set(0, 3, 5);
+    scene.add(rackFillLight);
 
     // Serverraum Hintergrund
     createServerRoom();
@@ -2855,27 +2865,28 @@ function createLevel3Scene() {
 }
 
 function createServerRoom() {
-    // Boden (dunkelgrau/Antistatik-Optik)
+    // Boden (Technikraum-Optik, wie Level 4)
     const floorGeometry = new THREE.PlaneGeometry(40, 25);
     const floorMaterial = new THREE.MeshStandardMaterial({
-        color: 0x2a2a2a,
-        roughness: 0.8
+        color: 0x666666,
+        roughness: 0.9
     });
     const floor = new THREE.Mesh(floorGeometry, floorMaterial);
     floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -8;
+    floor.position.y = -5;
     floor.receiveShadow = true;
     scene.add(floor);
 
-    // Rückwand
-    const wallGeometry = new THREE.PlaneGeometry(40, 25);
+    // Rückwand (ab Bodenniveau nach oben, wie Level 4)
+    const wallHeight = 15;
+    const wallGeometry = new THREE.PlaneGeometry(40, wallHeight);
     const wallMaterial = new THREE.MeshStandardMaterial({
-        color: 0x3a3a4a,
-        roughness: 0.7
+        color: 0xe8e0d0,
+        roughness: 0.9
     });
     const backWall = new THREE.Mesh(wallGeometry, wallMaterial);
-    backWall.position.set(0, 0, -5);
-    backWall.receiveShadow = true;
+    backWall.position.set(0, -5 + wallHeight / 2, -5);
+    backWall.receiveShadow = false;
     scene.add(backWall);
 
     // Großer Kabelkanal an der Wand (für 24 Kabel)
@@ -2915,7 +2926,6 @@ function create19InchRack() {
     positions.forEach(pos => {
         const post = new THREE.Mesh(postGeometry, frameMaterial);
         post.position.set(...pos);
-        post.castShadow = true;
         rackGroup.add(post);
     });
 
@@ -3151,14 +3161,13 @@ function createWallCables() {
             roughness: 0.5
         });
         const cable = new THREE.Mesh(tubeGeometry, cableMaterial);
-        cable.castShadow = true;
         cable.userData = { portNum: portNum, isOrange: i === 0 };
         scene.add(cable);
         wallCableMeshes.push(cable);
     }
 
-    // Labels für die Kabel
-    createLevel3Label(scene, 'Orange = DD1-1\n(aus Level 1 & 2)', -12.5, 6, 0);
+    // Label für das orange Kabel — nah am Kabelkanal-Ausgang
+    createLevel3Label(scene, 'Orange = DD1-1\n(aus Spiel-Level 1 & 2)', -10.5, 3, -3.5);
 }
 
 function createSmallPortLabel(parent, text, x, y, z) {
@@ -3438,7 +3447,6 @@ function createPatchCableConnection(patchPort, switchPort) {
         roughness: 0.6
     });
     const cable = new THREE.Mesh(tubeGeometry, cableMaterial);
-    cable.castShadow = true;
     cable.userData = {
         patchPortNum: patchData.portNum,
         switchNum: switchData.switchNum,
