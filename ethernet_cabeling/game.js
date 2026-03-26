@@ -3782,10 +3782,14 @@ function undoLevel3Action() {
 
         // Ports zurücksetzen
         lastAction.patchPort.userData.isConnected = false;
-        lastAction.patchPort.material.color = new THREE.Color(0x1a1a1a);
+        lastAction.patchPort.material.color = new THREE.Color(0x333333);
+        lastAction.patchPort.material.emissive = new THREE.Color(0x000000);
+        lastAction.patchPort.material.emissiveIntensity = 0;
 
         lastAction.switchPort.userData.isConnected = false;
-        lastAction.switchPort.material.color = new THREE.Color(0x1a1a1a);
+        lastAction.switchPort.material.color = new THREE.Color(0x333333);
+        lastAction.switchPort.material.emissive = new THREE.Color(0x000000);
+        lastAction.switchPort.material.emissiveIntensity = 0;
 
         // Aus Verbindungsliste entfernen
         gameState.level3.connections = gameState.level3.connections.filter(
