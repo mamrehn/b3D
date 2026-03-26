@@ -155,6 +155,9 @@ function isTouchDevice() {
     return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 }
 
+let lastInteractionTime = 0;
+let instructionsHintTimeout = null;
+
 function setInstructionsText() {
     const el = document.getElementById('instructions-text');
     if (!el) return;
@@ -163,6 +166,10 @@ function setInstructionsText() {
     } else {
         el.textContent = '🖱️ Linke Maustaste + Ziehen = Drehen | Scrollrad = Zoomen | Rechte Maustaste = Verschieben';
     }
+}
+
+function trackInteraction() {
+    lastInteractionTime = Date.now();
 }
 
 function autoAnimateCamera() {
@@ -616,7 +623,13 @@ function initEventListeners() {
     });
 
     // Canvas Click
-    document.getElementById('scene').addEventListener('click', onCanvasClick);
+    const sceneEl = document.getElementById('scene');
+    sceneEl.addEventListener('click', onCanvasClick);
+
+    // Interaktion tracken (für Navigations-Hint-Steuerung)
+    sceneEl.addEventListener('mousedown', trackInteraction);
+    sceneEl.addEventListener('wheel', trackInteraction);
+    sceneEl.addEventListener('touchstart', trackInteraction);
 
     // Level 1 spezifische Buttons
     document.getElementById('pickup-cable-btn')?.addEventListener('click', pickupCable);
@@ -1807,10 +1820,22 @@ function showFeedback(message, type) {
     };
     overlay.style.background = bgColors[type] || bgColors.info;
 
-    setTimeout(() => {
-        setInstructionsText();
-        overlay.style.background = 'rgba(0, 0, 0, 0.85)';
-    }, 2000);
+    // Vorherigen Timeout löschen
+    if (instructionsHintTimeout) clearTimeout(instructionsHintTimeout);
+
+    // Notification nach 3s ausblenden, aber Navigations-Hint nur zeigen
+    // wenn der User 10s lang nichts gemacht hat
+    instructionsHintTimeout = setTimeout(() => {
+        const idleSince = Date.now() - lastInteractionTime;
+        if (idleSince > 10000) {
+            setInstructionsText();
+            overlay.style.background = 'rgba(0, 0, 0, 0.85)';
+        } else {
+            // Nur Notification-Hintergrund zurücksetzen, Text leer lassen
+            if (textEl) textEl.textContent = '';
+            overlay.style.background = 'rgba(0, 0, 0, 0)';
+        }
+    }, 3000);
 }
 
 // ============================================
