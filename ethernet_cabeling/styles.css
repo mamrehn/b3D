@@ -421,6 +421,13 @@ body {
 #action-panel {
     margin-top: auto;
     background: var(--bg-color);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+#action-panel .btn {
+    width: 100%;
 }
 
 /* ==========================================
