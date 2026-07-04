@@ -157,6 +157,22 @@ function isTouchDevice() {
 
 let lastInteractionTime = 0;
 let instructionsHintTimeout = null;
+let pointerDownPos = null;        // Für Klick-vs-Ziehen-Unterscheidung (OrbitControls)
+const DRAG_THRESHOLD = 8;         // Pixel-Toleranz: darüber gilt es als Kamera-Drehung, nicht als Klick
+
+function setPanelDescription(text) {
+    // Zentrale Steuerung des Beschreibungstexts über der Seitenleisten-Auswahl.
+    // text === null  → ausblenden (Level bringt eigene Beschreibung im Panel mit)
+    const el = document.getElementById('cable-panel-desc');
+    if (!el) return;
+    if (text) {
+        el.textContent = text;
+        el.hidden = false;
+    } else {
+        el.textContent = '';
+        el.hidden = true;
+    }
+}
 
 function setInstructionsText() {
     const el = document.getElementById('instructions-text');
@@ -550,7 +566,8 @@ function updateCableCoresUI() {
 
         // Panel-Titel für Level 2
         document.querySelector('#cable-panel h3').textContent = '📦 Kabeladern';
-        
+        setPanelDescription('Wähle eine Kabelader und klicke dann auf die passende LSA-Klemme in Dose A.');
+
         // Socket-Status für Level 2
         const socketStatus = document.getElementById('socket-status');
         if (socketStatus) {
@@ -585,6 +602,7 @@ function initEventListeners() {
 
     // Help Modal
     document.getElementById('help-btn').addEventListener('click', () => {
+        renderHelpForLevel();
         document.getElementById('help-modal').classList.remove('hidden');
     });
     document.getElementById('help-close').addEventListener('click', () => {
@@ -631,9 +649,28 @@ function initEventListeners() {
     sceneEl.addEventListener('wheel', trackInteraction);
     sceneEl.addEventListener('touchstart', trackInteraction);
 
+    // Startposition des Zeigers merken, um echte Klicks von Kamera-Drehungen
+    // (OrbitControls) zu unterscheiden. Ein Drag löst sonst am Loslassen einen
+    // ungewollten "click" aus und platziert/wählt versehentlich Objekte.
+    sceneEl.addEventListener('pointerdown', (e) => {
+        pointerDownPos = { x: e.clientX, y: e.clientY };
+    });
+
     // Level 1 spezifische Buttons
     document.getElementById('pickup-cable-btn')?.addEventListener('click', pickupCable);
     document.getElementById('close-deckel-btn')?.addEventListener('click', closeDeckel);
+
+    // Escape schließt die schließbaren Modals (Hilfe / Ergebnis)
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const help = document.getElementById('help-modal');
+        const result = document.getElementById('result-modal');
+        if (help && !help.classList.contains('hidden')) {
+            help.classList.add('hidden');
+        } else if (result && !result.classList.contains('hidden')) {
+            result.classList.add('hidden');
+        }
+    });
 }
 
 // ============================================
@@ -1562,6 +1599,15 @@ function selectCore(coreId) {
 function onCanvasClick(event) {
     if (!gameState.isStarted) return;
 
+    // Kamera-Drehung (Ziehen) nicht als Klick werten: Wenn sich der Zeiger
+    // zwischen Drücken und Loslassen deutlich bewegt hat, ignorieren.
+    if (pointerDownPos) {
+        const dx = event.clientX - pointerDownPos.x;
+        const dy = event.clientY - pointerDownPos.y;
+        pointerDownPos = null;
+        if (Math.hypot(dx, dy) > DRAG_THRESHOLD) return;
+    }
+
     const rect = renderer.domElement.getBoundingClientRect();
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -1949,11 +1995,16 @@ function calculateLevel3TimeBonus(timeUsed) {
 
 function showResult(correct, total, errors, score) {
     const modal = document.getElementById('result-modal');
+    const titleEl = document.getElementById('result-title');
     const iconEl = document.getElementById('result-icon');
     const scoreEl = document.getElementById('result-score');
     const timeEl = document.getElementById('result-time');
     const detailsEl = document.getElementById('result-details');
     const errorsEl = document.getElementById('result-errors');
+
+    // Titel zurücksetzen (könnte von Level 3/4 überschrieben worden sein)
+    titleEl.textContent = errors.length === 0 ? '🎉 Dose A fertig belegt!' : '📋 Ergebnis der Prüfung';
+    iconEl.className = '';
 
     // Icon und Farbe basierend auf Score
     let icon, scoreClass, message;
@@ -2269,6 +2320,117 @@ function resetLevel3() {
 
     // UI zurücksetzen
     updateLevel3UI();
+}
+
+// Level-spezifische Hilfe-Inhalte für Level 1, 3 und 4.
+// Level 2 nutzt die statischen "Gestuften Hilfen" (T568A) aus dem HTML.
+const LEVEL_HELP = {
+    1: {
+        title: '💡 Hilfe: Kabelkanal',
+        html: `
+            <div class="help-level">
+                <h3>Worum geht es?</h3>
+                <div class="help-content">
+                    <p>Ein <strong>Kabelkanal</strong> führt und schützt Kabel entlang der Wand. Das
+                    <strong>Verlegekabel (Cat.7)</strong> ist ein starres Installationskabel für die feste Verlegung.</p>
+                </div>
+            </div>
+            <div class="help-level">
+                <h3>So löst du das Level</h3>
+                <div class="help-content">
+                    <ol style="margin-left:1.2rem;">
+                        <li>Klicke auf <strong>„Kabel aufnehmen“</strong>.</li>
+                        <li>Klicke die Positionen <strong>1 bis 6 der Reihe nach</strong> von links nach rechts an.</li>
+                        <li>Klicke zum Abschluss auf <strong>„Deckel schließen“</strong>.</li>
+                    </ol>
+                </div>
+            </div>
+            <div class="help-level">
+                <h3>Profi-Tipp</h3>
+                <div class="help-content">
+                    <p>Beachte den <strong>Mindestbiegeradius</strong> – Verlegekabel dürfen nicht geknickt werden,
+                    sonst leidet die Übertragungsqualität.</p>
+                </div>
+            </div>`
+    },
+    3: {
+        title: '💡 Hilfe: Patchpanel & Switch',
+        html: `
+            <div class="help-level">
+                <h3>Patchpanel &amp; Switch</h3>
+                <div class="help-content">
+                    <p>Am <strong>Patchpanel</strong> sind alle Verlegekabel des Gebäudes aufgelegt (hinten LSA,
+                    vorne RJ45). Der <strong>Switch</strong> ist das aktive Gerät, das die Ports zu einem Netzwerk verbindet.</p>
+                </div>
+            </div>
+            <div class="help-level">
+                <h3>Zuordnung</h3>
+                <div class="help-content">
+                    <p><strong>Patchpanel-Ports 1–12 → Switch Büro 1</strong></p>
+                    <p><strong>Patchpanel-Ports 13–24 → Switch Büro 2</strong></p>
+                    <p>Klicke erst einen Patchpanel-Port an, dann den passenden Switch-Port (Reihenfolge egal).</p>
+                </div>
+            </div>
+            <div class="help-level">
+                <h3>Profi-Tipp</h3>
+                <div class="help-content">
+                    <p>⏱️ Es läuft ein <strong>3-Minuten-Limit</strong> – arbeite zügig. Das
+                    <span style="color:#FF8C00;">orange</span> Kabel ist DD1-1 aus Level 1 &amp; 2.</p>
+                </div>
+            </div>`
+    },
+    4: {
+        title: '💡 Hilfe: PC-Vernetzung & Ping',
+        html: `
+            <div class="help-level">
+                <h3>Jeder PC an seine Dose</h3>
+                <div class="help-content">
+                    <p>Jeder Arbeitsplatz hat eine eigene Doppeldose:</p>
+                    <p><strong>PC 1 → DD1-1</strong> und <strong>PC 2 → DD2-1</strong></p>
+                </div>
+            </div>
+            <div class="help-level">
+                <h3>So verbindest du</h3>
+                <div class="help-content">
+                    <ol style="margin-left:1.2rem;">
+                        <li>Klicke ein <strong>Patchkabel</strong> auf dem Tisch an.</li>
+                        <li>Klicke den <strong>LAN-Port an der PC-Rückseite</strong> an.
+                        <em>(Drehe die Kamera, um die Rückseite zu sehen!)</em></li>
+                        <li>Klicke den richtigen <strong>Dosen-Port</strong> an.</li>
+                    </ol>
+                </div>
+            </div>
+            <div class="help-level">
+                <h3>Der Ping-Test</h3>
+                <div class="help-content">
+                    <p><code>ping 192.168.1.2</code> prüft, ob PC 1 den PC 2 erreicht (ICMP-Pakete).
+                    <strong>0 % Verlust</strong> bedeutet: Die Verbindung steht. Beide PCs liegen im selben
+                    Netz <strong>192.168.1.0/24</strong> und hängen am selben Switch.</p>
+                </div>
+            </div>`
+    }
+};
+
+function renderHelpForLevel() {
+    const t568a = document.getElementById('help-t568a');
+    const generic = document.getElementById('help-generic');
+    const titleEl = document.getElementById('help-modal-title');
+    if (!t568a || !generic) return;
+
+    if (currentLevel === 2) {
+        // T568A gestufte Hilfen anzeigen
+        t568a.hidden = false;
+        generic.hidden = true;
+        generic.innerHTML = '';
+        if (titleEl) titleEl.textContent = '💡 Gestufte Hilfen (T568A)';
+    } else {
+        // Level-spezifische Hilfe (ohne Punktabzug)
+        const help = LEVEL_HELP[currentLevel];
+        t568a.hidden = true;
+        generic.hidden = false;
+        generic.innerHTML = help ? help.html : '';
+        if (titleEl) titleEl.textContent = help ? help.title : '💡 Hilfe';
+    }
 }
 
 function resetHelpModal() {
@@ -2763,11 +2925,16 @@ function checkLevel1Solution() {
 
 function showLevel1Result(score) {
     const modal = document.getElementById('result-modal');
+    const titleEl = document.getElementById('result-title');
     const iconEl = document.getElementById('result-icon');
     const scoreEl = document.getElementById('result-score');
     const timeEl = document.getElementById('result-time');
     const detailsEl = document.getElementById('result-details');
     const errorsEl = document.getElementById('result-errors');
+
+    // Titel zurücksetzen (könnte von Level 3/4 überschrieben worden sein)
+    titleEl.textContent = '🎉 Kabel verlegt!';
+    iconEl.className = '';
 
     // Level 1 Score speichern
     gameState.levelScores[1] = {
@@ -2827,7 +2994,8 @@ function updateLevel1UI() {
 
     // Panel-Titel anpassen
     document.querySelector('#cable-panel h3').textContent = '📦 Kabel';
-    
+    setPanelDescription(null);  // Level 1 bringt eigene Beschreibung im Panel mit
+
     // Socket-Status für Level 1 anpassen
     const socketStatus = document.getElementById('socket-status');
     socketStatus.innerHTML = `
@@ -3285,7 +3453,8 @@ function updateLevel3UI() {
 
     // Panel-Titel anpassen
     document.querySelector('#cable-panel h3').textContent = '🔗 Patch-Verbindungen';
-    
+    setPanelDescription('Klicke auf einen Patchpanel-Port, dann auf den passenden Switch-Port.');
+
     // Socket-Status für Level 3 anpassen
     const socketStatus = document.getElementById('socket-status');
     socketStatus.innerHTML = `
@@ -5324,6 +5493,7 @@ function updateLevel4UI() {
 
     // Panel-Titel anpassen
     document.querySelector('#cable-panel h3').textContent = '🖧 PC-Vernetzung';
+    setPanelDescription(null);  // Level 4 bringt eigene Beschreibung im Panel mit
 
     // Socket-Status für Level 4
     const socketStatus = document.getElementById('socket-status');
@@ -5338,11 +5508,12 @@ function updateLevel4UI() {
         </div>
     `;
 
-    // Undo Button
+    // Undo Button — nach vollständiger Verkabelung (Ping-Phase) gesperrt,
+    // damit der Netzwerkstatus nicht in einen inkonsistenten Zustand gerät.
     const undoBtn = document.getElementById('undo-btn');
     if (undoBtn) {
         undoBtn.textContent = '↩️ Letztes Kabel entfernen';
-        undoBtn.disabled = gameState.undoHistory.length === 0;
+        undoBtn.disabled = gameState.undoHistory.length === 0 || gameState.level4.bothConnected;
     }
 
     // Check-Button
@@ -5623,9 +5794,15 @@ function undoLevel4Action() {
         lastAction.socketPort.userData.isConnected = false;
         lastAction.socketPort.material.color = new THREE.Color(0x1a1a1a);
 
-        // Kabel-Pickup wieder sichtbar
+        // Kabel-Pickup wieder sichtbar und Auswahl-Hervorhebung entfernen
         if (lastAction.cablePickup) {
             lastAction.cablePickup.visible = true;
+            lastAction.cablePickup.traverse(child => {
+                if (child.isMesh && child.material.emissive) {
+                    child.material.emissive = new THREE.Color(0x000000);
+                    child.material.emissiveIntensity = 0;
+                }
+            });
         }
 
         // State zurücksetzen
@@ -5634,9 +5811,8 @@ function undoLevel4Action() {
         gameState.level4.selectedCable = null;
         gameState.level4.cablePhase = 'pickUp';
 
-        // Bildschirme zurück auf disconnected
-        updateLevel4Screen('left', 'disconnected');
-        updateLevel4Screen('right', 'disconnected');
+        // Bildschirme neu zeichnen (Netzwerkplan mit aktualisiertem Status)
+        refreshLevel4Screens();
 
         updateLevel4UI();
         updateLevel4Progress();
