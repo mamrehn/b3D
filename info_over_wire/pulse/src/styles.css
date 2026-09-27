@@ -1,0 +1,310 @@
+@import url('https://rsms.me/inter/inter.css');
+@import url('https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono/index.css');
+
+/* ============================================================================
+   Gestaltungsregeln dieser Oberfläche
+   ----------------------------------------------------------------------------
+   1. AFFORDANZ. Es gibt genau zwei visuelle Klassen von Kästchen:
+        - anklickbar  -> abgerundet (9px), gefüllt, gerahmt, Zeigerhand,
+                         reagiert auf Hover.
+        - nur Anzeige -> eckig (4px), randlos bzw. nur linker Akzentstrich,
+                         normaler Cursor, reagiert nicht auf Hover.
+      Diese Regel steht auch in der Hilfe. Sie darf nirgends gebrochen werden,
+      sonst muss die Lernende wieder raten, was ein Knopf ist.
+   2. KEINE ÜBERLAPPUNG. Alle Panels liegen in einem Grid mit festen Zonen.
+      Absolute Positionierung gibt es nur noch für Modale.
+   3. LESBARKEIT VOR DICHTE. Fließtext bekommt Zeilenhöhe 1.6 und höchstens
+      ~64 Zeichen pro Zeile.
+   ========================================================================== */
+
+:root {
+  --bg-void:#0B0D10; --surface:#14181D; --surface-2:#1B2027; --surface-3:#232A33;
+  --stroke:#2A3038; --stroke-soft:rgba(255,255,255,.08);
+  --text:#E6EAF0; --text-2:#B4BECB; --muted:#7A8593; --dim:#59626F;
+  --blue:#4C9AFF; --emerald:#34D399; --amber:#F5A524; --rust:#E5484D;
+  --violet:#A78BFA; --cyan:#67E8F9;
+  --r:14px;
+  --font:'Inter',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+  --zoom:1;
+}
+
+/* Basisgröße folgt der Fensterbreite; --ui-scale ist zusätzlich der Regler
+   in der Hilfe (Hörsaal: hintere Reihen). Beide multiplizieren sich. */
+@media (max-width:1600px){ :root{ --zoom:.94 } }
+@media (max-width:1360px){ :root{ --zoom:.87 } }
+@media (max-width:1180px){ :root{ --zoom:.80 } }
+
+*{box-sizing:border-box;margin:0}
+html,body,#root{height:100%}
+body{background:var(--bg-void);color:var(--text);font-family:var(--font);
+  letter-spacing:-.01em;overflow:hidden}
+
+.app{position:fixed;inset:0;font-size:calc(15px * var(--zoom,1) * var(--ui-scale,1))}
+.canvas-wrap{position:absolute;inset:0}
+.canvas-wrap canvas{display:block;touch-action:none;cursor:grab}
+.canvas-wrap canvas:active{cursor:grabbing}
+
+/* ---------------------------------------------------------------- Zonen --- */
+.overlay{
+  position:absolute;inset:0;display:grid;
+  grid-template-columns:minmax(290px,23vw) minmax(0,1fr) minmax(280px,24vw) auto;
+  grid-template-rows:auto minmax(0,1fr) auto;
+  gap:12px;padding:12px;pointer-events:none;
+}
+.zone{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0;pointer-events:none}
+/* max-width verhindert, dass ein Panel breiter wird als seine Spalte und in
+   die Nachbarspalte ragt — genau so verdeckte die Schichtleiste vorher die
+   Steuerung. */
+.zone > *{pointer-events:auto;max-width:100%}
+/* Die Tour muss auch über einem geöffneten Labor bedienbar bleiben, sonst
+   sitzt die Lernende in Schritt 4 fest. */
+.z-tc{position:relative;z-index:70}
+.z-tl{grid-area:1/1;align-self:start}
+.z-ml{grid-area:2/1;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable}
+.z-bl{grid-area:3/1;align-self:end}
+.z-tc{grid-area:1/2;align-items:center}
+.z-bc{grid-area:3/2;align-items:center;align-self:end}
+.z-tr{grid-area:1/3;align-self:start;align-items:stretch}
+.z-mr{grid-area:2/3;overflow-y:auto;overflow-x:hidden;align-items:stretch}
+.z-br{grid-area:3/3;align-self:end;align-items:stretch}
+.z-rail{grid-area:1/4/4/5;align-self:stretch}
+
+/* Bildlaufleisten bleiben sichtbar: die Panels sind oft länger als der Platz,
+   und eine erst beim Hovern erscheinende Leiste verrät das niemandem.
+   Zusätzlich läuft der Inhalt der Scrollzonen unten weich aus — ein harter
+   Schnitt mitten durch einen Knopf sieht nach Fehler aus, ein Verlauf nach
+   "hier geht es weiter". */
+.zone{scrollbar-width:thin;scrollbar-color:var(--stroke) transparent}
+.z-ml,.z-mr{
+  -webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 22px),transparent);
+  mask-image:linear-gradient(to bottom,#000 calc(100% - 22px),transparent);
+}
+.zone::-webkit-scrollbar{width:8px}
+.zone::-webkit-scrollbar-thumb{background:var(--stroke);border-radius:4px}
+.zone::-webkit-scrollbar-track{background:transparent}
+
+/* --------------------------------------------------------------- Panels --- */
+.glass{
+  background:rgba(18,22,27,.86);
+  backdrop-filter:blur(24px) saturate(140%);
+  -webkit-backdrop-filter:blur(24px) saturate(140%);
+  border:1px solid var(--stroke-soft);
+  border-radius:var(--r);
+  box-shadow:0 8px 32px rgba(0,0,0,.45);
+}
+.glass.pad{padding:14px 16px}
+.panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}
+.panel-title{font-size:.76em;letter-spacing:.07em;text-transform:uppercase;color:var(--text);
+  font-weight:600}
+
+/* -------------------------------------------------- ANKLICKBAR: Buttons --- */
+button{
+  font-family:inherit;font-size:.82em;color:var(--text);background:var(--surface-2);
+  border:1px solid var(--stroke);border-radius:9px;padding:7px 13px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px;line-height:1.25;
+  transition:transform .1s,border-color .15s,background .15s,color .15s;
+}
+button:hover:not(:disabled){border-color:var(--blue);background:var(--surface-3)}
+button:active:not(:disabled){transform:translateY(1px)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+button[aria-pressed='true']{border-color:var(--blue);color:var(--blue);background:rgba(76,154,255,.14)}
+/* Umschalter tragen zusätzlich einen Punkt: "an/aus" darf nicht allein an
+   der Farbe hängen (Rot-Grün-Sehschwäche, Beamer mit schlechtem Kontrast). */
+button.toggle::before{
+  content:'';width:7px;height:7px;border-radius:50%;flex:none;
+  border:1px solid var(--dim);background:transparent;transition:all .15s;
+}
+button[aria-pressed='true'].toggle::before{background:var(--blue);border-color:var(--blue);
+  box-shadow:0 0 8px rgba(76,154,255,.8)}
+button.primary{background:rgba(76,154,255,.16);border-color:rgba(76,154,255,.55);color:#CFE2FF}
+button.primary:hover:not(:disabled){background:rgba(76,154,255,.26);border-color:var(--blue)}
+button.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+button.ghost:hover:not(:disabled){background:var(--surface-2);border-color:var(--stroke);color:var(--text)}
+button.icon{padding:5px 9px;border-radius:8px}
+.btn-row{display:flex;gap:6px;flex-wrap:wrap}
+
+/* ------------------------------------------------ NUR ANZEIGE: Readouts --- */
+/* Eckig, kein Vollrahmen, kein Hover — darf nie wie ein Button aussehen. */
+.stat{
+  display:flex;flex-direction:column;gap:2px;padding:5px 0 5px 9px;
+  border-left:2px solid var(--stroke);border-radius:0;cursor:default;min-width:0;
+}
+.stat > .stat-k{font-size:.66em;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.stat > .stat-v{font-family:var(--mono);font-size:.88em;color:var(--text);
+  font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.stat > .stat-n{font-size:.64em;color:var(--dim);line-height:1.35}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px 10px}
+.stat.b-em{border-left-color:var(--emerald)} .stat.b-em > .stat-v{color:var(--emerald)}
+.stat.b-am{border-left-color:var(--amber)}   .stat.b-am > .stat-v{color:var(--amber)}
+.stat.b-ru{border-left-color:var(--rust)}    .stat.b-ru > .stat-v{color:var(--rust)}
+.stat.b-bl{border-left-color:var(--blue)}    .stat.b-bl > .stat-v{color:var(--blue)}
+.stat.b-vi{border-left-color:var(--violet)}  .stat.b-vi > .stat-v{color:var(--violet)}
+
+/* Statusmarke: ebenfalls nur Anzeige, daher eckig und ohne Hover. */
+.tag{
+  display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:4px;
+  font-size:.7em;font-family:var(--mono);letter-spacing:.04em;cursor:default;
+  background:var(--surface-2);color:var(--muted);border:1px solid transparent;
+}
+.tag.em{color:var(--emerald);background:rgba(52,211,153,.12)}
+.tag.am{color:var(--amber);background:rgba(245,165,36,.12)}
+.tag.ru{color:var(--rust);background:rgba(229,72,77,.12)}
+.tag.bl{color:var(--blue);background:rgba(76,154,255,.12)}
+.tag.vi{color:var(--violet);background:rgba(167,139,250,.12)}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap}
+
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:3px 0}
+.row > .k{color:var(--muted);font-size:.72em;letter-spacing:.06em;text-transform:uppercase;flex:none}
+.row > .v{font-family:var(--mono);font-size:.86em;text-align:right;font-variant-numeric:tabular-nums}
+.hr{height:1px;background:var(--stroke);margin:10px 0;border:0}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ------------------------------------------------------------ Lehrtext --- */
+.prose{font-size:.82em;line-height:1.62;color:var(--text-2);max-width:64ch}
+.prose + .prose{margin-top:8px}
+.lead{font-size:.9em;line-height:1.5;color:var(--text)}
+.eyebrow{font-size:.65em;letter-spacing:.1em;text-transform:uppercase;color:var(--violet)}
+.h-lesson{font-size:1.1em;line-height:1.25;font-weight:600;letter-spacing:-.02em;margin:3px 0 8px}
+.bullets{list-style:none;display:flex;flex-direction:column;gap:6px;margin:0;padding:0}
+.bullets li{position:relative;padding-left:16px;font-size:.8em;line-height:1.55;color:var(--text-2)}
+.bullets li::before{content:'';position:absolute;left:2px;top:.62em;width:5px;height:5px;
+  border-radius:50%;background:var(--stroke)}
+
+.callout{border-left:2px solid var(--amber);background:rgba(245,165,36,.07);
+  padding:10px 12px;border-radius:0 8px 8px 0;margin:10px 0}
+.callout .callout-h{font-size:.79em;font-weight:600;color:var(--amber);line-height:1.42;
+  margin-bottom:5px}
+.callout.do{border-left-color:var(--blue);background:rgba(76,154,255,.07)}
+.callout.do .callout-h{color:var(--blue)}
+
+/* Aufklappbare Verständnisfrage */
+details.check{border:1px solid var(--stroke);border-radius:10px;padding:9px 12px;margin-top:10px;
+  background:var(--surface-2)}
+details.check > summary{cursor:pointer;font-size:.79em;color:var(--text);list-style:none;
+  display:flex;gap:8px;align-items:flex-start;line-height:1.45}
+details.check > summary::-webkit-details-marker{display:none}
+details.check > summary::before{content:'?';flex:none;width:17px;height:17px;border-radius:50%;
+  background:var(--violet);color:#14181D;font-weight:700;font-size:.74em;
+  display:grid;place-items:center;margin-top:1px}
+details.check[open] > summary{color:var(--violet);margin-bottom:7px}
+details.check > summary:focus-visible{outline:2px solid var(--violet);outline-offset:3px;
+  border-radius:4px}
+
+/* ----------------------------------------------- Begriff (Lexikon-Link) --- */
+.term{
+  font:inherit;color:var(--cyan);background:none;border:0;padding:0;cursor:help;
+  border-bottom:1px dotted currentColor;border-radius:0;display:inline;
+}
+.term:hover{color:#A5F3FC;background:rgba(103,232,249,.1)}
+.term:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+
+/* ------------------------------------------------------------- Maßstab --- */
+/* Die Beschriftungen sind absolut in .rail-body positioniert, nicht in der
+   Schiene — sie werden deshalb von deren rechter Kante aus gemessen. Die
+   Schiene selbst liegt durch padding-right 56 px vom rechten Rand entfernt,
+   links davon die Stufennamen, rechts davon der Augen-Marker. */
+.rail{display:flex;flex-direction:column;gap:10px;padding:14px 14px 12px;height:100%;width:252px}
+.rail-body{position:relative;flex:1;min-height:150px;display:flex;justify-content:flex-end;
+  padding-left:8px;padding-right:56px;padding-block:12px}
+.rail-track{position:relative;width:4px;height:100%;background:var(--stroke);border-radius:2px;
+  cursor:pointer}
+.rail-track:focus-visible{outline:2px solid var(--blue);outline-offset:7px;border-radius:4px}
+.rail-fill{position:absolute;bottom:0;left:0;width:100%;border-radius:2px;
+  background:linear-gradient(0deg,var(--blue),var(--violet))}
+.rail-thumb{position:absolute;left:50%;width:20px;height:20px;margin-left:-10px;margin-bottom:-10px;
+  background:var(--surface-3);border:2px solid var(--blue);border-radius:50%;
+  box-shadow:0 0 14px rgba(76,154,255,.55);pointer-events:none}
+.rail-stop{position:absolute;right:75px;width:80px;text-align:right;
+  font-size:.7em;line-height:1.2;color:var(--muted);background:none;border:0;padding:2px 0;
+  cursor:pointer;white-space:nowrap;transform:translateY(50%);border-radius:4px;display:block}
+.rail-stop:hover{color:var(--text);background:none;text-decoration:underline}
+.rail-stop[aria-current='true']{color:var(--blue);font-weight:600}
+.rail-stop:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.rail-stop::after{content:'';position:absolute;right:-15px;top:50%;width:15px;height:1px;
+  background:var(--stroke)}
+.rail-stop[aria-current='true']::after{background:var(--blue)}
+/* Der Augen-Marker steht rechts der Schiene: links davon liegt bei 25 % die
+   Stufe "LED", die beiden Beschriftungen lagen sonst übereinander. */
+.rail-eye{position:absolute;right:4px;transform:translateY(50%);pointer-events:none;
+  font-size:.62em;color:var(--amber);white-space:nowrap;letter-spacing:.04em}
+.rail-eye::after{content:'';position:absolute;right:100%;margin-right:4px;top:50%;
+  width:16px;height:2px;background:var(--amber);box-shadow:0 0 8px var(--amber)}
+
+/* -------------------------------------------------------- Schichtleiste --- */
+.ribbon{display:flex;font-size:.7em;letter-spacing:.08em}
+.ribbon span{padding:5px 13px;color:var(--muted);opacity:.35;transition:all .25s;cursor:default}
+.ribbon span.on{color:var(--blue);opacity:1;text-shadow:0 0 12px rgba(76,154,255,.6)}
+
+/* ------------------------------------------------------------- Hexdump --- */
+.hex{font-family:var(--mono);font-size:.72em;line-height:1.8;white-space:pre;overflow-x:auto}
+.hex mark{background:rgba(76,154,255,.3);color:inherit;border-radius:3px;padding:1px 2px;
+  box-shadow:0 0 10px rgba(76,154,255,.5)}
+
+/* -------------------------------------------------------------- Modale --- */
+.modal-scrim{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:24px;
+  background:rgba(6,8,11,.62);backdrop-filter:blur(4px);pointer-events:auto}
+/* Läuft die Tour, bleibt oben Platz für ihre Leiste. */
+.tour-active .modal-scrim{padding-top:190px}
+.modal{max-height:min(88vh,940px);overflow-y:auto;overscroll-behavior:contain}
+.modal::-webkit-scrollbar{width:9px}
+.modal::-webkit-scrollbar-thumb{background:var(--stroke);border-radius:5px}
+
+/* ---------------------------------------------------------------- Tour --- */
+.tour{display:flex;flex-direction:column;gap:9px;width:min(580px,100%);padding:13px 15px}
+.tour-dots{display:flex;gap:4px}
+.tour-dots i{width:14px;height:3px;border-radius:2px;background:var(--stroke)}
+.tour-dots i.on{background:var(--blue)}
+.tour-dots i.done{background:rgba(76,154,255,.45)}
+
+/* ----------------------------------------------------------- Regler etc. --- */
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;
+  background:var(--stroke);border-radius:2px;outline:none;cursor:pointer;margin:6px 0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;
+  border-radius:50%;background:var(--blue);cursor:pointer;box-shadow:0 0 10px rgba(76,154,255,.6)}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border:0;border-radius:50%;
+  background:var(--blue);cursor:pointer}
+input[type=range]:focus-visible{outline:2px solid var(--blue);outline-offset:4px}
+.switch{display:flex;gap:9px;align-items:flex-start;font-size:.79em;line-height:1.45;
+  cursor:pointer;color:var(--text-2);padding:8px 10px;border-radius:9px;
+  border:1px solid var(--stroke);background:var(--surface-2);transition:border-color .15s}
+.switch:hover{border-color:var(--blue)}
+.switch input{accent-color:var(--blue);margin-top:2px;cursor:pointer;flex:none}
+.field-label{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.field-label .k{color:var(--muted);font-size:.72em;letter-spacing:.06em;text-transform:uppercase}
+.field-label .v{font-family:var(--mono);font-size:.86em}
+.scale-ends{display:flex;justify-content:space-between;font-size:.65em;color:var(--dim);
+  text-transform:uppercase;letter-spacing:.06em}
+
+/* ------------------------------------------------------------ Feedback --- */
+@keyframes flashOk{0%,100%{box-shadow:0 8px 32px rgba(0,0,0,.45)}
+  40%{box-shadow:0 0 0 2px var(--emerald),0 0 40px rgba(52,211,153,.5)}}
+@keyframes flashErr{0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-3px)}60%{transform:translateX(3px)}}
+@keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.18)}100%{transform:scale(1)}}
+.ok{animation:flashOk .5s ease-out}
+.err{animation:flashErr .28s ease-in-out 2}
+.pop{animation:pop .3s ease-out}
+.vignette-err{position:fixed;inset:0;pointer-events:none;opacity:0;z-index:40;
+  box-shadow:inset 0 0 180px 40px rgba(229,72,77,.65);transition:opacity .12s}
+.vignette-err.on{opacity:1}
+
+/* Steuerungshinweis für die 3D-Ansicht */
+.viewhint{display:flex;gap:12px;flex-wrap:wrap;font-size:.68em;color:var(--dim);
+  letter-spacing:.02em}
+.viewhint b{color:var(--muted);font-weight:500}
+
+.legend{display:flex;flex-wrap:wrap;gap:5px 12px}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:.68em;color:var(--muted);
+  cursor:default}
+.legend-item i{width:9px;height:9px;border-radius:2px;flex:none}
+
+.kbd{display:inline-block;font-family:var(--mono);font-size:.72em;padding:2px 7px;
+  border-radius:5px;background:var(--surface-3);border:1px solid var(--stroke);
+  color:var(--text);min-width:24px;text-align:center}
+
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
