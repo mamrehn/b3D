@@ -1,299 +1,147 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0a0f1c">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Netzwerkdose Belegung - Lernspiel</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔌</text></svg>">
+    <meta name="description" content="Interaktives 3D-Lernspiel zur strukturierten Netzwerkverkabelung: Kabelkanal, LSA-Netzwerkdose (T568A), Patchpanel & Switch, PC-Anschluss und ping.">
+    <title>NetzWerk-Lab · Strukturierte Verkabelung</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f1a33'/%3E%3Cpath d='M18 44V30h5v-6h18v6h5v14z' fill='none' stroke='%234f8cff' stroke-width='4' stroke-linejoin='round'/%3E%3Cpath d='M26 44v-6M32 44v-6M38 44v-6' stroke='%2322d3ee' stroke-width='3'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/inter@5.3.0/index.css">
     <link rel="stylesheet" href="styles.css">
+
+    <!-- Three.js r186 (statische ES-Module, per SRI abgesichert). Import-Map MUSS vor den Modulen stehen. -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+        },
+        "integrity": {
+            "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js": "sha384-m8JoFX52V6NGv2usipnlLJKnJfL7IE8dbniPDDCSGSQv3Hm4n6PjfV6syVwfuoRc",
+            "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.core.js": "sha384-mdKeCwPEcbDvzaxwhm+MVuLoMou+E7jQqrs4tmu/n8HBYPGI1kZt0MkJxlMR4zFM",
+            "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/controls/OrbitControls.js": "sha384-LSqANrugPGTgf0eYsQTloqKWy926dOOXo2iZ9y6wLMIDEQoU9AaCLJF1Vcc7oJXr",
+            "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/environments/RoomEnvironment.js": "sha384-/H49oz0ZtMgJNgMZ+OhhuMuKBOsaiC3kY0/PZSvgJJXAOJJwmSBJjzlV5lJul3MB",
+            "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/geometries/RoundedBoxGeometry.js": "sha384-gHmgcgYfabbVCqiNiLLSop7dMvxAqZsQsjokoDYKyrHmCD5jCPvDvFaXaAkHtTfM"
+        }
+    }
+    </script>
+    <link rel="modulepreload" crossorigin="anonymous" href="https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js" integrity="sha384-m8JoFX52V6NGv2usipnlLJKnJfL7IE8dbniPDDCSGSQv3Hm4n6PjfV6syVwfuoRc">
+    <link rel="modulepreload" crossorigin="anonymous" href="https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.core.js" integrity="sha384-mdKeCwPEcbDvzaxwhm+MVuLoMou+E7jQqrs4tmu/n8HBYPGI1kZt0MkJxlMR4zFM">
 </head>
 <body>
-    <div id="app">
-        <!-- Header mit Timer und Score -->
-        <header id="header">
-            <div class="header-left">
-                <h1>🔌 Netzwerkdose Belegung (T568A)</h1>
-            </div>
-            <div class="header-center">
-                <div id="timer">
-                    <span class="timer-icon">⏱️</span>
-                    <span id="timer-display">00:00</span>
+    <div id="app" class="app">
+        <!-- ============ Kopfzeile ============ -->
+        <header class="topbar">
+            <button class="brand" id="brand-btn" type="button" title="Zur Stationsübersicht">
+                <span class="brand-mark" aria-hidden="true">
+                    <svg viewBox="0 0 32 32"><rect width="32" height="32" rx="8"/><path d="M9 22v-7h2.5v-3h9v3H23v7z"/><path d="M13 22v-3M16 22v-3M19 22v-3"/></svg>
+                </span>
+                <span class="brand-text">
+                    <span class="brand-title">NetzWerk-Lab</span>
+                    <span class="brand-sub">Strukturierte Verkabelung</span>
+                </span>
+            </button>
+
+            <nav class="stepper" id="stepper" aria-label="Stationen"></nav>
+
+            <div class="top-actions">
+                <div class="chip timer" id="timer" title="Bearbeitungszeit">
+                    <span class="timer-icon"></span><span id="timer-value">00:00</span>
                 </div>
-            </div>
-            <div class="header-right">
-                <button id="menu-btn" class="btn btn-secondary" title="Zurück zur Level-Auswahl">
-                    <span class="btn-icon">📋</span><span class="btn-text">Level-Auswahl</span>
-                </button>
-                <button id="help-btn" class="btn btn-help" title="Hilfe anzeigen">
-                    <span class="btn-icon">💡</span><span class="btn-text">Hilfe</span>
-                </button>
-                <button id="reset-btn" class="btn btn-reset" title="Neu starten">
-                    <span class="btn-icon">🔄</span><span class="btn-text">Neustart</span>
-                </button>
+                <button class="icon-btn" id="help-btn" type="button" title="Hilfe (H)"><span class="sr">Hilfe</span></button>
+                <button class="icon-btn" id="restart-btn" type="button" title="Station neu starten"><span class="sr">Neustart</span></button>
+                <button class="icon-btn" id="menu-btn" type="button" title="Stationsübersicht"><span class="sr">Übersicht</span></button>
             </div>
         </header>
 
-        <!-- Hauptbereich -->
-        <main id="main">
-            <!-- 3D Canvas -->
-            <div id="canvas-container">
-                <canvas id="scene"></canvas>
-                <!-- Overlay für Anweisungen -->
-                <div id="instructions-overlay">
-                    <p id="instructions-text"></p>
+        <!-- ============ Hauptbereich ============ -->
+        <main class="main">
+            <section class="viewport" id="viewport">
+                <canvas id="scene" aria-label="3D-Ansicht"></canvas>
+                <div class="vignette" aria-hidden="true"></div>
+                <div class="objective" id="objective" hidden></div>
+                <div class="toasts" id="toasts" aria-live="polite"></div>
+                <div class="tooltip" id="tooltip" hidden></div>
+                <div class="nav-hint" id="nav-hint"></div>
+                <div class="view-buttons">
+                    <button class="icon-btn glass" id="view-reset" type="button" title="Ansicht zurücksetzen"><span class="sr">Ansicht zurücksetzen</span></button>
                 </div>
-            </div>
-
-            <!-- Seitenleiste -->
-            <aside id="sidebar">
-                <div class="scroll-hint" aria-hidden="true"></div>
-                <!-- Kabelader-Auswahl -->
-                <div class="panel" id="cable-panel">
-                    <h3>📦 Kabeladern</h3>
-                    <p class="panel-description" id="cable-panel-desc"></p>
-                    <div id="cable-cores">
-                        <!-- Wird dynamisch generiert -->
+                <div class="terminal" id="terminal" hidden>
+                    <div class="term-titlebar">
+                        <span class="term-title" id="term-title">Eingabeaufforderung</span>
+                        <button class="term-close" id="term-close" type="button" title="Schließen">&times;</button>
                     </div>
-                </div>
-
-                <!-- Aktuelle Dose -->
-                <div class="panel" id="socket-panel">
-                    <h3>🔌 Kabel & Dosen Status</h3>
-                    <div id="socket-status">
-                        <div class="socket-status-item active-cable">
-                            <span>📍 Kabel 1 → Dose A:</span>
-                            <span id="socket1-progress">0/8</span>
-                        </div>
-                        <div class="socket-status-item completed-cable">
-                            <span>✅ Kabel 2 → Dose B:</span>
-                            <span id="socket2-progress">8/8 ✓</span>
-                        </div>
+                    <div class="term-body" id="term-body">
+                        <pre class="term-out" id="term-out"></pre>
+                        <label class="term-line">
+                            <span class="term-prompt" id="term-prompt">C:\Users\Azubi&gt;</span>
+                            <input class="term-input" id="term-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Befehl eingeben">
+                        </label>
                     </div>
+                    <div class="term-quick" id="term-quick"></div>
                 </div>
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>3D-Szene wird geladen …</p>
+                </div>
+            </section>
 
-                <!-- Aktionen -->
-                <div class="panel" id="action-panel">
-                    <button id="undo-btn" class="btn btn-secondary" disabled>
-                        ↩️ Rückgängig
-                    </button>
-                    <button id="check-btn" class="btn btn-primary btn-large" disabled>
-                        ✅ Belegung prüfen
-                    </button>
+            <aside class="panel" id="panel">
+                <div class="panel-grip" aria-hidden="true"></div>
+                <div class="panel-scroll">
+                    <section class="panel-head" id="panel-head"></section>
+                    <section class="card" id="mission-card"></section>
+                    <section class="card" id="controls-card"></section>
+                    <details class="card knowledge" id="knowledge-card"></details>
+                </div>
+                <div class="panel-actions">
+                    <button class="btn btn-ghost" id="undo-btn" type="button" disabled></button>
+                    <button class="btn btn-primary" id="check-btn" type="button" disabled></button>
                 </div>
             </aside>
         </main>
 
-        <!-- Hilfe-Modal -->
-        <div id="help-modal" class="modal hidden">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2 id="help-modal-title">💡 Gestufte Hilfen</h2>
-                    <button class="modal-close" id="help-close">&times;</button>
+        <!-- ============ Stationsübersicht ============ -->
+        <div class="overlay menu" id="menu">
+            <div class="menu-inner">
+                <div class="menu-hero">
+                    <p class="eyebrow">Lernspiel · Fachinformatik &amp; IT-Systemelektronik</p>
+                    <h1>Vom Kabelkanal bis zum <span class="grad">ping</span></h1>
+                    <p class="lead">Begleite ein Netzwerkkabel auf seinem Weg: verlegen, auflegen, patchen, anschließen – und am Ende mit einem echten ping testen.</p>
                 </div>
-                <div class="modal-body">
-                    <!-- Level-spezifische Hilfe (Level 1, 3, 4) - dynamisch gefüllt -->
-                    <div class="help-levels" id="help-generic" hidden></div>
-
-                    <!-- T568A gestufte Hilfen (nur Level 2) -->
-                    <div class="help-levels" id="help-t568a">
-                        <div class="help-level" id="help-level-1">
-                            <h3>Hilfe Stufe 1 - Allgemeine Information</h3>
-                            <div class="help-content hidden">
-                                <p>Die Belegung einer Netzwerkdose erfolgt nach dem <strong>T568A-Standard</strong>.</p>
-                                <p>Ein Netzwerkkabel besteht aus <strong>8 Adern</strong>, die paarweise verdrillt sind (4 Paare).</p>
-                                <p>Bei einer <strong>Doppeldose</strong> werden zwei separate Kabel benötigt - eines für jede Buchse (A und B).</p>
-                                <p>Die LSA-Klemmen sind in <strong>zwei Reihen</strong> angeordnet, passend zu den Adernpaaren.</p>
-                            </div>
-                            <button class="btn btn-hint" data-level="1">Hilfe anzeigen</button>
-                        </div>
-
-                        <div class="help-level" id="help-level-2">
-                            <h3>Hilfe Stufe 2 - Farbpaare</h3>
-                            <div class="help-content hidden">
-                                <p>Die 4 Adernpaare haben folgende Farben:</p>
-                                <ul>
-                                    <li><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #2E8B57 50%);"></span> Paar 1: Weiß-Grün / Grün</li>
-                                    <li><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #FF8C00 50%);"></span> Paar 2: Weiß-Orange / Orange</li>
-                                    <li><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #4169E1 50%);"></span> Paar 3: Weiß-Blau / Blau</li>
-                                    <li><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #8B4513 50%);"></span> Paar 4: Weiß-Braun / Braun</li>
-                                </ul>
-                            </div>
-                            <button class="btn btn-hint" data-level="2">Hilfe anzeigen</button>
-                        </div>
-
-                        <div class="help-level" id="help-level-3">
-                            <h3>Hilfe Stufe 3 - Reihenfolge Merkhilfe</h3>
-                            <div class="help-content hidden">
-                                <p><strong>Eselsbrücke für T568A:</strong></p>
-                                <p class="mnemonic">"<strong>G</strong>rüne <strong>O</strong>mas <strong>b</strong>ringen <strong>b</strong>raune Kuchen"</p>
-                                <p>→ Grün, Orange, Blau, Braun (Reihenfolge der Paare)</p>
-                                <p>Die gestreiften Adern (weiß-farbig) kommen immer <strong>vor</strong> den vollfarbigen Adern ihres Paares.</p>
-                            </div>
-                            <button class="btn btn-hint" data-level="3">Hilfe anzeigen</button>
-                        </div>
-
-                        <div class="help-level" id="help-level-4">
-                            <h3>Hilfe Stufe 4 - LSA-Klemmen Anordnung</h3>
-                            <div class="help-content hidden">
-                                <p><strong>Obere Reihe (von links nach rechts):</strong></p>
-                                <ol>
-                                    <li><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #FF8C00 50%);"></span> Weiß-Orange</li>
-                                    <li><span class="color-dot" style="background: #FF8C00;"></span> Orange</li>
-                                    <li><span class="color-dot" style="background: #4169E1;"></span> Blau</li>
-                                    <li><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #4169E1 50%);"></span> Weiß-Blau</li>
-                                </ol>
-                                <p><strong>Untere Reihe (von links nach rechts):</strong></p>
-                                <ol>
-                                    <li><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #2E8B57 50%);"></span> Weiß-Grün</li>
-                                    <li><span class="color-dot" style="background: #2E8B57;"></span> Grün</li>
-                                    <li><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #8B4513 50%);"></span> Weiß-Braun</li>
-                                    <li><span class="color-dot" style="background: #8B4513;"></span> Braun</li>
-                                </ol>
-                            </div>
-                            <button class="btn btn-hint" data-level="4">Hilfe anzeigen</button>
-                        </div>
-
-                        <div class="help-level" id="help-level-5">
-                            <h3>Hilfe Stufe 5 - Komplette Lösung</h3>
-                            <div class="help-content hidden">
-                                <p><strong>T568A Belegung der LSA-Klemmen:</strong></p>
-                                <table class="solution-table">
-                                    <tr><th>Reihe</th><th>Position</th><th>Farbe</th><th>Pin (RJ45)</th></tr>
-                                    <tr><td>Oben</td><td>1</td><td><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #FF8C00 50%);"></span> Weiß-Orange</td><td>3</td></tr>
-                                    <tr><td>Oben</td><td>2</td><td><span class="color-dot" style="background: #FF8C00;"></span> Orange</td><td>6</td></tr>
-                                    <tr><td>Oben</td><td>3</td><td><span class="color-dot" style="background: #4169E1;"></span> Blau</td><td>4</td></tr>
-                                    <tr><td>Oben</td><td>4</td><td><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #4169E1 50%);"></span> Weiß-Blau</td><td>5</td></tr>
-                                    <tr><td>Unten</td><td>1</td><td><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #2E8B57 50%);"></span> Weiß-Grün</td><td>1</td></tr>
-                                    <tr><td>Unten</td><td>2</td><td><span class="color-dot" style="background: #2E8B57;"></span> Grün</td><td>2</td></tr>
-                                    <tr><td>Unten</td><td>3</td><td><span class="color-dot" style="background: linear-gradient(90deg, #FFFFFF 50%, #8B4513 50%);"></span> Weiß-Braun</td><td>7</td></tr>
-                                    <tr><td>Unten</td><td>4</td><td><span class="color-dot" style="background: #8B4513;"></span> Braun</td><td>8</td></tr>
-                                </table>
-                                <p><em>Hinweis: Beide Dosen (A und B) werden identisch belegt!</em></p>
-                            </div>
-                            <button class="btn btn-hint" data-level="5">Hilfe anzeigen</button>
-                        </div>
-                    </div>
-                </div>
+                <div class="journey" id="journey"></div>
+                <p class="menu-foot" id="menu-foot"></p>
             </div>
         </div>
 
-        <!-- Ergebnis-Modal -->
-        <div id="result-modal" class="modal hidden">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2 id="result-title">Ergebnis</h2>
-                    <button class="modal-close" id="result-close">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div id="result-icon"></div>
-                    <div id="result-score"></div>
-                    <div id="result-time"></div>
-                    <div id="result-details"></div>
-                    <div id="result-errors" class="hidden"></div>
-                    <button id="result-retry" class="btn btn-primary">🔄 Nochmal versuchen</button>
-                </div>
+        <!-- ============ Dialoge ============ -->
+        <div class="modal" id="briefing" hidden>
+            <div class="dialog dialog-wide" role="dialog" aria-modal="true" aria-labelledby="briefing-title">
+                <div class="dialog-body" id="briefing-body"></div>
             </div>
         </div>
 
-        <!-- Level-Auswahl Modal -->
-        <div id="level-select-modal" class="modal">
-            <div class="modal-content level-select-content">
-                <div class="modal-header">
-                    <h2>🔌 Netzwerk-Verkabelung</h2>
-                </div>
-                <div class="modal-body">
-                    <p class="level-intro">Wähle ein Level um das Verlegen eines Netzwerkkabels zu üben:</p>
-                    <div class="level-grid">
-                        <button class="level-btn" data-level="1">
-                            <div class="level-icon">📏</div>
-                            <div class="level-info">
-                                <h3>Level 1</h3>
-                                <p>Kabelkanal</p>
-                                <span class="level-desc">Verlege das Kabel im Kabelkanal</span>
-                            </div>
-                        </button>
-                        <button class="level-btn" data-level="2">
-                            <div class="level-icon">🔌</div>
-                            <div class="level-info">
-                                <h3>Level 2</h3>
-                                <p>Netzwerkdose</p>
-                                <span class="level-desc">Belege die LSA-Klemmen (T568A)</span>
-                            </div>
-                        </button>
-                        <button class="level-btn" data-level="3">
-                            <div class="level-icon">🖥️</div>
-                            <div class="level-info">
-                                <h3>Level 3</h3>
-                                <p>Patchpanel & Switch</p>
-                                <span class="level-desc">Verbinde Patchpanel mit Switch (⏱️ 3 Min)</span>
-                            </div>
-                        </button>
-                        <button class="level-btn" data-level="4">
-                            <div class="level-icon">🖧</div>
-                            <div class="level-info">
-                                <h3>Level 4</h3>
-                                <p>PC-Vernetzung</p>
-                                <span class="level-desc">Verbinde PCs und teste mit Ping</span>
-                            </div>
-                        </button>
-                    </div>
-                    <p class="level-hint">💡 Alle Level bauen aufeinander auf - es wird immer diesselbe Kabelverbindung verlegt!</p>
-                </div>
+        <div class="modal" id="help" hidden>
+            <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="help-title">
+                <header class="dialog-head">
+                    <h2 id="help-title">Hilfe</h2>
+                    <button class="icon-btn subtle" id="help-close" type="button" title="Schließen (Esc)"><span class="sr">Schließen</span></button>
+                </header>
+                <div class="dialog-body" id="help-body"></div>
             </div>
         </div>
 
-        <!-- Landscape Hint (Level 3, mobile portrait) -->
-        <div id="landscape-hint" class="landscape-hint">
-            <div class="rotate-icon">📱</div>
-            <p>Bitte drehe dein Gerät ins Querformat</p>
-            <p class="hint-subtitle">Landscape empfohlen für dieses Level</p>
-        </div>
-
-        <!-- Start-Modal -->
-        <div id="start-modal" class="modal hidden">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>🔌 Netzwerkdose Belegung</h2>
-                </div>
-                <div class="modal-body">
-                    <div class="start-info">
-                        <p>Willkommen zum interaktiven Lernspiel!</p>
-                        <p>Deine Aufgabe ist es, ein <strong>Ethernet-Kabel</strong> (8 Adern) korrekt in die <strong>LSA-Klemmen</strong> der Dose A einzulegen.</p>
-                        <p class="info-note">ℹ️ Die Dose B ist bereits fertig verkabelt - nutze sie als Referenz!</p>
-                        <h3>So funktioniert's:</h3>
-                        <ol>
-                            <li>Wähle eine Kabelader aus der Seitenleiste</li>
-                            <li>Klicke auf die entsprechende LSA-Klemme in Dose A</li>
-                            <li>Belege alle 8 Klemmen korrekt</li>
-                            <li>Prüfe deine Belegung</li>
-                        </ol>
-                        <p class="tip">💡 <strong>Tipp:</strong> Die Farbmarkierungen über den LSA-Klemmen zeigen die korrekte Belegung nach T568A!</p>
-                    </div>
-                    <button id="start-btn" class="btn btn-primary btn-large">🚀 Spiel starten</button>
-                </div>
+        <div class="modal" id="result" hidden>
+            <div class="dialog dialog-wide" role="dialog" aria-modal="true" aria-labelledby="result-title">
+                <div class="dialog-body" id="result-body"></div>
             </div>
         </div>
     </div>
 
-    <!-- Three.js r183.2 (ES Modules) — importmap MUST come before modulepreload -->
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.min.js",
-            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/"
-        }
-    }
-    </script>
-    <link rel="modulepreload"
-          href="https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.min.js"
-          integrity="sha384-TuBaLlXYFzL5/ERE/v+rEu11lpj6LXzYXwrpCkpxQLvJgJKma/O7uaqQOdHW07Yk"
-          crossorigin="anonymous">
-    <link rel="modulepreload"
-          href="https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/controls/OrbitControls.js"
-          integrity="sha384-qwbKZfqvfut7iKUj5OTm9S0ZtyKO8qwf6tgArWhWhvjzpRG9qEN88IL6J8gVOZOx"
-          crossorigin="anonymous">
-    <script type="module" src="game.js"></script>
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>
