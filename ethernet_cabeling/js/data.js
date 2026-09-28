@@ -162,7 +162,7 @@ export const LEVELS = [
             '{tap} den <strong>LAN-Port</strong> auf der Rückseite des PCs – die Kamera zeigt ihn dir.',
             'Stecke das andere Ende in die richtige Dose: <strong>PC 1 → DD1-1</strong>, <strong>PC 2 → DD2-1</strong>.',
             'Öffne auf PC 1 die <strong>Eingabeaufforderung</strong> und tippe <code>ping 192.168.1.2</code>.',
-            'Mit <strong>„Gesamte Strecke zeigen“</strong> blickst du durch die Wand in den Technikraum – dort kommt dein Kabel am Patchpanel an.'
+            'Mit <strong>„Gesamte Strecke zeigen“</strong> blickst du durch die Wand in den Technikraum – dort kommt dein Kabel am Patchpanel an. Mit <strong>„Technikraum ansehen“</strong> gehst du hinein und siehst dir den Schrank aus der Nähe an.'
         ],
         tip: 'Probiere ruhig schon vorher einen ping – an den Fehlermeldungen erkennst du, was noch fehlt. Beim erfolgreichen ping siehst du die Pakete über die ganze Strecke laufen.',
         knowledge: [

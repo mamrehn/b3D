@@ -81,6 +81,8 @@ export class Engine {
 
         this.pickables = new Set();
         this.occluders = [];
+        this.wallItems = [];
+        this.cameraBounds = null;
         this._pickMeshes = null;
         this.hovered = null;
         this.hints = new Set();
@@ -118,6 +120,8 @@ export class Engine {
         this.frameCallbacks.clear();
         this.pickables.clear();
         this.occluders = [];
+        this.wallItems = [];
+        this.cameraBounds = null;
         this._pickMeshes = null;
         this.hovered = null;
         this.hints.clear();
@@ -156,6 +160,16 @@ export class Engine {
     }
 
     add(...objs) { this.world.add(...objs); return objs[0]; }
+
+    /**
+     * Wandflächen sind einseitig und verschwinden, sobald die Kamera dahinter steht.
+     * Dinge an dieser Wand (Fenster, Leuchten, Schilder …) sollen es ihnen gleichtun:
+     * obj ist nur sichtbar, solange die Kamera auf der Seite liegt, in die normal zeigt.
+     */
+    attachToWall(obj, point, normal) {
+        this.wallItems.push({ obj, plane: new THREE.Plane().setFromNormalAndCoplanarPoint(toVec3(normal).normalize(), toVec3(point)) });
+        return obj;
+    }
 
     /** Kleine Teile werfen keine Schatten (spart pro Teil einen Draw-Call im Schatten-Pass). */
     optimizeShadows(minRadius) {
@@ -196,6 +210,12 @@ export class Engine {
 
     configureControls(opts) {
         Object.assign(this.controls, DEFAULT_CONTROLS, opts);
+    }
+
+    /** Hält die Kamera in einem Quader, z. B. vor einer Wand: { min: { z: 0.05 } } – fehlende Achsen sind frei, null = aus. */
+    setCameraBounds(bounds) {
+        const vec = (v, d) => new THREE.Vector3(v?.x ?? d, v?.y ?? d, v?.z ?? d);
+        this.cameraBounds = bounds ? { min: vec(bounds.min, -Infinity), max: vec(bounds.max, Infinity) } : null;
     }
 
     setView({ position, target, fov }) {
@@ -311,6 +331,11 @@ export class Engine {
 
     addOccluder(...meshes) {
         this.occluders.push(...meshes);
+        this._pickMeshes = null;
+    }
+
+    removeOccluder(...meshes) {
+        this.occluders = this.occluders.filter(m => !meshes.includes(m));
         this._pickMeshes = null;
     }
 
@@ -505,6 +530,11 @@ export class Engine {
         this._updateHover();
         this._applyGlow();
         this.controls.update(dt);
+        if (this.cameraBounds && !this._flight) {      // Kamerafahrten dürfen Grenzen kreuzen (z. B. Raumwechsel)
+            this.camera.position.clamp(this.cameraBounds.min, this.cameraBounds.max);
+            this.camera.lookAt(this.controls.target);
+        }
+        for (const w of this.wallItems) w.obj.visible = w.plane.distanceToPoint(this.camera.position) > 0;
         this.renderer.render(this.scene, this.camera);
     }
 }

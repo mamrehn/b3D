@@ -240,9 +240,10 @@ export function windowPanel({ w = 1.2, h = 1.35 } = {}) {
     return g;
 }
 
+/** Deckenleuchte (nur das Gehäuse – sie wirft keinen Schatten; Licht spendet das Level selbst) */
 export function ceilingLight(w = 0.62, d = 0.62) {
     const g = new THREE.Group();
-    at(box(w, 0.03, d, std('#e8e8e6', 0.5)), 0, 0, 0, g);
+    at(box(w, 0.03, d, std('#e8e8e6', 0.5)), 0, 0, 0, g).castShadow = false;
     const panel = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.04, d - 0.04), new THREE.MeshBasicMaterial({ color: '#fffdf6', toneMapped: false }));
     panel.rotation.x = Math.PI / 2;
     panel.position.y = -0.0152;
@@ -303,6 +304,8 @@ export function plant(height = 0.9) {
     at(soil, 0, 0.318, 0, g);
     const leaf = std('#2f7d3b', 0.55);
     const leaf2 = std('#3f9a4b', 0.55);
+    const stemMat = std('#3d6b2c', 0.7);
+    const up = V(0, 1, 0);
     for (let i = 0; i < 14; i++) {
         const a = i * 2.39;
         const l = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), i % 2 ? leaf : leaf2);
@@ -312,6 +315,15 @@ export function plant(height = 0.9) {
         l.rotation.set(Math.sin(a) * tilt, 0, -Math.cos(a) * tilt);
         l.castShadow = true;
         g.add(l);
+        // Stiel: von der Erde bis in den Blattansatz
+        const axis = up.clone().applyEuler(l.rotation);
+        const top = l.position.clone().addScaledVector(axis, -0.06 * l.scale.y * 0.8);
+        const foot = V(top.x * 0.25, 0.31, top.z * 0.25);
+        const dir = top.clone().sub(foot);
+        const stem = cyl(0.005, 0.008, dir.length(), stemMat, 8);
+        stem.position.copy(foot).addScaledVector(dir, 0.5);
+        stem.quaternion.setFromUnitVectors(up, dir.normalize());
+        g.add(stem);
     }
     return g;
 }
