@@ -108,9 +108,16 @@ export function twistedPairPoints(curve, { separation, twistsPerUnit, samples = 
 // RJ45-Stecker (Ursprung = Kontaktspitze, +Z zeigt in die Buchse)
 // ------------------------------------------------------------
 
-export function rj45Plug({ bootColor = '#2f6fe0', cableRadius = 0.0029 } = {}) {
+export function rj45Plug({ bootColor = '#2f6fe0', cableRadius = 0.0029, simple = false } = {}) {
     const g = new THREE.Group();
     const w = 0.0117, h = 0.0081, L = 0.021;
+    const bootMatS = std(bootColor, 0.55);
+    if (simple) {
+        at(box(w, h, L, std('#d9e2ea', 0.3)), 0, 0, -L / 2, g);
+        at(rbox(w + 0.0014, h + 0.0022, 0.02, 0.0028, bootMatS), 0, -0.0003, -L - 0.008, g);
+        g.userData.cableAnchor = V(0, 0, -L - 0.02);
+        return g;
+    }
     const body = rbox(w, h, L, 0.0010, MAT.clearPlastic());
     body.position.z = -L / 2;
     body.castShadow = false;
@@ -118,15 +125,12 @@ export function rj45Plug({ bootColor = '#2f6fe0', cableRadius = 0.0029 } = {}) {
     const core = box(w * 0.78, h * 0.42, L * 0.55, std('#8f98a6', 0.4));
     core.position.set(0, -h * 0.05, -L * 0.62);
     g.add(core);
-    const gold = MAT.gold();
-    for (let i = 0; i < 8; i++) {
-        at(box(0.0006, 0.0011, 0.0042, gold), -w / 2 + 0.0014 + i * (w - 0.0028) / 7, h / 2 - 0.0011, -0.003, g);
-    }
+    at(box(w - 0.0024, 0.0011, 0.0042, MAT.gold()), 0, h / 2 - 0.0011, -0.003, g);
     const latch = box(0.0062, 0.0007, 0.013, MAT.clearPlastic());
     latch.position.set(0, -h / 2 - 0.0011, -0.009);
     latch.rotation.x = -0.16;
     g.add(latch);
-    const bootMat = std(bootColor, 0.55);
+    const bootMat = bootMatS;
     at(rbox(w + 0.0014, h + 0.0022, 0.016, 0.0028, bootMat), 0, -0.0003, -L - 0.006, g);
     const relief = cyl(cableRadius * 1.25, cableRadius * 1.6, 0.012, bootMat, 16);
     relief.rotation.x = Math.PI / 2;
@@ -231,7 +235,7 @@ export function windowPanel({ w = 1.2, h = 1.35 } = {}) {
     at(rbox(0.04, h, 0.06, 0.006, frameMat), 0, 0, 0.02, g);
     at(rbox(w + 0.3, 0.03, 0.2, 0.008, std('#e9e7e1', 0.35)), 0, -h / 2 - f - 0.015, 0.1, g);
     const sky = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: skyTexture(), toneMapped: false }));
-    sky.position.z = -0.01;
+    sky.position.z = 0.004;   // knapp vor der Wand, hinter dem Rahmen
     g.add(sky);
     return g;
 }
@@ -286,8 +290,17 @@ export function officeChair(color = '#2a3140') {
 
 export function plant(height = 0.9) {
     const g = new THREE.Group();
-    at(cyl(0.16, 0.12, 0.34, std('#e9e6df', 0.4)), 0, 0.17, 0, g);
-    at(cyl(0.15, 0.15, 0.02, std('#3b2a1c', 0.95)), 0, 0.33, 0, g);
+    const potMat = std('#e9e6df', 0.4, 0, { side: THREE.DoubleSide });
+    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.12, 0.34, 40, 1, true), potMat);
+    pot.castShadow = pot.receiveShadow = true;
+    at(pot, 0, 0.17, 0, g);
+    at(cyl(0.12, 0.12, 0.01, potMat, 40), 0, 0.005, 0, g);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.009, 10, 48), std('#e4e1d9', 0.4));
+    rim.rotation.x = Math.PI / 2;
+    at(rim, 0, 0.34, 0, g);
+    const soil = new THREE.Mesh(new THREE.CircleGeometry(0.154, 40), std('#3b2a1c', 0.95));
+    soil.rotation.x = -Math.PI / 2;
+    at(soil, 0, 0.318, 0, g);
     const leaf = std('#2f7d3b', 0.55);
     const leaf2 = std('#3f9a4b', 0.55);
     for (let i = 0; i < 14; i++) {
@@ -382,59 +395,136 @@ export function ductCover({ length = 2, height = 0.13, bulge = 0.005, thickness 
 // Datendose & Steckdose für den Kanaleinbau (zeigt nach +Z)
 // ------------------------------------------------------------
 
-export function dataOutlet({ title = 'DD1', ports = ['DD1-1', 'DD1-2'] } = {}) {
+// Abgerundetes Rechteck als Pfad (Mitte cx/cy)
+function roundedRectPath(w, h, r, cx = 0, cy = 0, path = new THREE.Shape()) {
+    const x = cx - w / 2, y = cy - h / 2;
+    path.moveTo(x + r, y);
+    path.lineTo(x + w - r, y);
+    path.quadraticCurveTo(x + w, y, x + w, y + r);
+    path.lineTo(x + w, y + h - r);
+    path.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    path.lineTo(x + r, y + h);
+    path.quadraticCurveTo(x, y + h, x, y + h - r);
+    path.lineTo(x, y + r);
+    path.quadraticCurveTo(x, y, x + r, y);
+    return path;
+}
+
+/** Fläche mit Löchern extrudieren; Ergebnis liegt zwischen z = 0 und der Gesamtdicke. */
+function extrudeZ(shape, depth, bevel = 0) {
+    const geo = new THREE.ExtrudeGeometry(shape, {
+        depth, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 12
+    });
+    geo.computeBoundingBox();
+    geo.translate(0, 0, -geo.boundingBox.min.z);
+    geo.computeVertexNormals();
+    return geo;
+}
+
+const PURE_WHITE = '#f4f3ee';        // reinweiß (RAL 9010), glänzend
+
+/** Abdeckrahmen 80,8 × 80,8 mm mit 55er-Öffnung (Schalterprogramm-Optik) */
+function coverFrame(g) {
+    const shape = roundedRectPath(0.0808, 0.0808, 0.0075);
+    shape.holes.push(roundedRectPath(0.055, 0.055, 0.0022, 0, 0, new THREE.Path()));
+    const frame = new THREE.Mesh(extrudeZ(shape, 0.0072, 0.0011), std(PURE_WHITE, 0.3));
+    frame.castShadow = frame.receiveShadow = true;
+    g.add(frame);
+    // dunkle Fuge zwischen Rahmen und Zentralplatte (nur als Ring, damit Aussparungen frei bleiben)
+    const gap = roundedRectPath(0.0552, 0.0552, 0.0022);
+    gap.holes.push(roundedRectPath(0.0488, 0.0488, 0.0014, 0, 0, new THREE.Path()));
+    const ring = new THREE.Mesh(extrudeZ(gap, 0.002), std('#aeb2b8', 0.6, 0.3));
+    ring.position.z = 0.003;
+    g.add(ring);
+}
+
+/** Zentralplatte 50 × 50 mm (Vorderseite bei z = 0,0105) mit optionalen Löchern */
+function centralPlate(g, holes = []) {
+    const shape = roundedRectPath(0.05, 0.05, 0.0016);
+    holes.forEach(h => shape.holes.push(h));
+    const plate = new THREE.Mesh(extrudeZ(shape, 0.002, 0.0005), std(PURE_WHITE, 0.3));
+    plate.position.z = 0.0075;
+    plate.castShadow = plate.receiveShadow = true;
+    g.add(plate);
+}
+
+/**
+ * Netzwerk-Doppeldose, wie in Deutschland üblich: Abdeckrahmen + Zentralplatte 50 × 50
+ * mit zwei RJ45-Buchsen im Schrägauslass, Staubschutzklappen und Beschriftungsfeld.
+ * Zeigt nach +Z, Ursprung = Rückseite Mitte.
+ */
+export function dataOutlet({ ports = ['DD1-1', 'DD1-2'] } = {}) {
     const g = new THREE.Group();
-    const white = MAT.plasticWhite();
-    at(rbox(0.084, 0.084, 0.012, 0.007, white), 0, 0, 0.006, g);
-    at(rbox(0.058, 0.058, 0.006, 0.004, std('#f7f6f2', 0.35)), 0, 0, 0.014, g);
-    const field = makeTextPlane(title, { width: 0.03, height: 0.009, fg: '#1f2937', bg: '#ffffff', fontScale: 0.8 });
-    at(field, 0, 0.034, 0.0125, g);
+    const ZF = 0.0105;                           // Vorderkante Zentralplatte
+    const TILT = 0.5;                            // Schrägauslass ≈ 29°
+    const BAY_W = 0.016, BAY_H = 0.018, BAY_Y = -0.012;
+    const depth = BAY_H * Math.tan(TILT);
+    coverFrame(g);
+    centralPlate(g, [-1, 1].map(sx => roundedRectPath(BAY_W, BAY_H, 0.0008, sx * 0.0125, BAY_Y, new THREE.Path())));
+
+    // Beschriftungsfeld mit Klarsichtabdeckung
+    const [c, ctx] = makeCanvas(640, 170);
+    ctx.fillStyle = '#d7d5ce'; ctx.beginPath(); ctx.roundRect(0, 0, 640, 170, 22); ctx.fill();
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(16, 16, 608, 138);
+    ctx.fillStyle = '#c9c7c0'; ctx.fillRect(318, 28, 4, 114);
+    ctx.fillStyle = '#111827'; ctx.font = '700 64px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(ports[0], 168, 88); ctx.fillText(ports[1], 472, 88);
+    const field = new THREE.Mesh(new THREE.PlaneGeometry(0.038, 0.0101), std('#ffffff', 0.12, 0, {
+        map: canvasTexture(c, { wrap: false }), polygonOffset: true, polygonOffsetFactor: -2
+    }));
+    at(field, 0, 0.0135, ZF + 0.0002, g);
+
+    const bayMat = std('#e7e5df', 0.45);
     const jacks = [];
     ports.forEach((name, i) => {
-        const jg = new THREE.Group();
-        jg.position.set(i === 0 ? -0.0135 : 0.0135, 0.004, 0.017);
-        jg.rotation.x = 0.42;                                   // Schrägauslass nach unten
-        at(rbox(0.021, 0.022, 0.01, 0.002, std('#eceae4', 0.4)), 0, 0, 0, jg);
-        at(box(0.0118, 0.0086, 0.006, std('#0b0c0e', 0.9)), 0, -0.001, 0.0024, jg);
+        const bx = (i === 0 ? -1 : 1) * 0.0125;
+        // Schacht: Boden und Seitenwände
+        at(box(BAY_W, 0.0012, depth, bayMat), bx, BAY_Y - BAY_H / 2 + 0.0006, ZF - depth / 2, g).castShadow = false;
+        for (const sx of [-1, 1]) at(box(0.0008, BAY_H, depth, bayMat), bx + sx * (BAY_W / 2 - 0.0004), BAY_Y, ZF - depth / 2, g).castShadow = false;
+        // schräge Buchsenfläche (Normale zeigt nach vorne unten)
+        const jf = new THREE.Group();
+        jf.position.set(bx, BAY_Y, ZF - depth / 2);
+        jf.rotation.x = TILT;
+        const faceH = BAY_H / Math.cos(TILT);
+        at(box(BAY_W - 0.0016, faceH, 0.001, bayMat), 0, 0, -0.0005, jf).castShadow = false;
+        at(box(0.0118, 0.0086, 0.0012, std('#050608', 0.9)), 0, -0.0005, 0.0001, jf);
         const gold = MAT.gold();
-        for (let k = 0; k < 8; k++) at(box(0.0006, 0.0006, 0.004, gold), -0.0042 + k * 0.0012, 0.0025, 0.0018, jg);
-        const shutterPivot = new THREE.Group();
-        shutterPivot.position.set(0, 0.0055, 0.0056);
-        const shutter = at(rbox(0.0142, 0.0108, 0.0012, 0.0008, std('#f4f3ef', 0.35)), 0, -0.0054, 0, shutterPivot);
-        shutter.castShadow = false;
-        jg.add(shutterPivot);
-        const hit = hitbox(0.022, 0.024, 0.02);
-        hit.position.z = 0.004;
-        jg.add(hit);
-        const label = makeTextPlane(name, { width: 0.022, height: 0.006, fg: '#111827', fontScale: 0.85 });
-        at(label, i === 0 ? -0.0135 : 0.0135, -0.019, 0.0172, g);
-        g.add(jg);
-        jacks.push({
-            name, group: jg, hit, shutter: shutterPivot,
-            localPos: V(0, -0.001, 0.0056),
-            localOut: V(0, 0, 1)
-        });
+        for (let k = 0; k < 8; k++) at(box(0.0006, 0.0006, 0.0004, gold), -0.0042 + k * 0.0012, 0.0028, 0.0008, jf);
+        // Staubschutzklappe, oben angeschlagen – klappt beim Stecken nach innen
+        const shutter = new THREE.Group();
+        shutter.position.set(0, 0.0052, 0.0011);
+        const flap = at(rbox(0.0136, 0.0106, 0.0008, 0.0006, std('#f7f6f2', 0.32)), 0, -0.0053, 0, shutter);
+        flap.castShadow = false;
+        at(box(0.006, 0.0007, 0.0009, std('#dcdad3', 0.4)), 0, -0.0098, 0.0005, shutter);
+        jf.add(shutter);
+        const hit = hitbox(0.02, 0.026, 0.022);
+        jf.add(hit);
+        g.add(jf);
+        jacks.push({ name, group: jf, hit, shutter, localPos: V(0, -0.0005, 0.0007), localOut: V(0, 0, 1) });
     });
     return { group: g, jacks };
 }
 
+/** Schutzkontakt-Steckdose (Schuko) im selben Schalterprogramm */
 export function schukoOutlet() {
     const g = new THREE.Group();
-    at(rbox(0.084, 0.084, 0.012, 0.007, MAT.plasticWhite()), 0, 0, 0.006, g);
-    const insert = cyl(0.026, 0.026, 0.006, std('#f7f6f2', 0.35), 40);
-    insert.rotation.x = Math.PI / 2;
-    at(insert, 0, 0, 0.014, g);
-    const recess = cyl(0.0195, 0.0195, 0.003, std('#d9d7d0', 0.6), 40);
-    recess.rotation.x = Math.PI / 2;
-    at(recess, 0, 0, 0.0158, g);
+    const ZF = 0.0105, R = 0.0195, DEPTH = 0.009;
+    coverFrame(g);
+    const hole = new THREE.Path();
+    hole.absarc(0, 0, R, 0, Math.PI * 2, true);
+    centralPlate(g, [hole]);
+    const inner = std('#ecebe6', 0.5, 0, { side: THREE.BackSide });
+    const cup = new THREE.Mesh(new THREE.CylinderGeometry(R, R, DEPTH, 48, 1, true), inner);
+    cup.rotation.x = Math.PI / 2;
+    at(cup, 0, 0, ZF - DEPTH / 2, g);
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(R, 48), std('#e4e2dc', 0.55));
+    at(floor, 0, 0, ZF - DEPTH, g);
     for (const x of [-0.0095, 0.0095]) {
-        const hole = cyl(0.0024, 0.0024, 0.002, std('#1b1b1b', 0.9), 16);
-        hole.rotation.x = Math.PI / 2;
-        at(hole, x, 0, 0.0171, g);
+        const pin = new THREE.Mesh(new THREE.CircleGeometry(0.0025, 20), std('#121315', 0.9));
+        at(pin, x, 0, ZF - DEPTH + 0.0002, g);
     }
     const metal = std('#c7ccd3', 0.3, 1);
-    at(box(0.008, 0.003, 0.004, metal), 0, 0.0175, 0.017, g);
-    at(box(0.008, 0.003, 0.004, metal), 0, -0.0175, 0.017, g);
+    for (const y of [R - 0.0012, -R + 0.0012]) at(box(0.009, 0.0022, DEPTH * 0.85, metal), 0, y, ZF - DEPTH / 2, g);
     return g;
 }
 

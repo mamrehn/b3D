@@ -60,7 +60,7 @@ export class Level2 extends BaseLevel {
         this.splits = { A: {}, B: {} };
 
         e.camera.near = 0.2;
-        e.camera.far = 4000;
+        e.camera.far = 1500;
         e.camera.updateProjectionMatrix();
         this.lights({
             hemi: 0.55, env: 0.55, sky: '#f1f5ff', ground: '#5a4a3a',
@@ -157,14 +157,15 @@ export class Level2 extends BaseLevel {
             s.rotation.y = rot ? Math.PI / 2 : 0;
             this.add(s);
         }
-        this.add(at(rbox(6.2, 2.0, 4.2, 0.3, white), 0, 2.14, 0));
+        // Geschirmter Cat.6A-Einsatz: Druckguss-Gehäuse (Zink), darauf die LSA-Leisten aus Kunststoff
+        this.add(at(rbox(6.2, 2.0, 4.2, 0.3, std('#aeb4bb', 0.42, 0.85, { roughnessMap: brushedTexture() })), 0, 2.14, 0));
         const tag1 = makeTextPlane('DD1-1', { width: 1.6, height: 0.3, fg: '#1f2937' });
         tag1.rotation.x = -Math.PI / 2;
         this.add(at(tag1, BLOCK_X.A, BODY_TOP + 0.005, 1.93));
         const tag2 = makeTextPlane('DD1-2', { width: 1.6, height: 0.3, fg: '#1f2937' });
         tag2.rotation.x = -Math.PI / 2;
         this.add(at(tag2, BLOCK_X.B, BODY_TOP + 0.005, 1.93));
-        const brand = makeTextPlane('CAT.6A · T568A/B · LSA', { width: 3.6, height: 0.22, fg: '#6b7280', weight: 600 });
+        const brand = makeTextPlane('CAT.6A · GESCHIRMT · T568A/B · LSA', { width: 3.8, height: 0.22, fg: '#374151', weight: 700 });
         brand.rotation.x = -Math.PI / 2;
         this.add(at(brand, 0, BODY_TOP + 0.005, -1.95));
 

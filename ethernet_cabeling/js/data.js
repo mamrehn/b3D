@@ -153,16 +153,18 @@ export const LEVELS = [
         story: 'Letzter Schritt: Schließe die beiden Arbeitsplatz-PCs mit <strong>Patchkabeln</strong> an ihre Netzwerkdosen an und teste die Verbindung in der Eingabeaufforderung mit <strong>ping</strong>.',
         goals: [
             'Anschlusskabel laut Dokumentation stecken',
-            'Den Link-Status am PC erkennen',
+            'Den Link-Status an PC und Switch erkennen',
+            'Die komplette Strecke vom PC bis zum Switch verstehen',
             'ping zur Fehlersuche einsetzen'
         ],
         howto: [
             '{tap} ein <strong>Patchkabel</strong> auf dem Schreibtisch.',
             '{tap} den <strong>LAN-Port</strong> auf der Rückseite des PCs – die Kamera zeigt ihn dir.',
             'Stecke das andere Ende in die richtige Dose: <strong>PC 1 → DD1-1</strong>, <strong>PC 2 → DD2-1</strong>.',
-            'Öffne auf PC 1 die <strong>Eingabeaufforderung</strong> und tippe <code>ping 192.168.1.2</code>.'
+            'Öffne auf PC 1 die <strong>Eingabeaufforderung</strong> und tippe <code>ping 192.168.1.2</code>.',
+            'Mit <strong>„Gesamte Strecke zeigen“</strong> blickst du durch die Wand in den Technikraum – dort kommt dein Kabel am Patchpanel an.'
         ],
-        tip: 'Probiere ruhig schon vorher einen ping – an den Fehlermeldungen erkennst du, was noch fehlt.',
+        tip: 'Probiere ruhig schon vorher einen ping – an den Fehlermeldungen erkennst du, was noch fehlt. Beim erfolgreichen ping siehst du die Pakete über die ganze Strecke laufen.',
         knowledge: [
             ['ping', 'ping sendet ICMP-Echo-Requests. Kommen Echo-Replies zurück, ist das Ziel auf Vermittlungsschicht (Schicht 3) erreichbar.'],
             ['Gleiches Netz', 'Beide PCs liegen im Netz 192.168.1.0/24 und hängen am selben Switch – ein Router (Gateway) wird nicht benötigt.'],

@@ -149,8 +149,8 @@ export class Engine {
         this.renderer.toneMappingExposure = 1.0;
         Object.assign(this.controls, DEFAULT_CONTROLS);
         this.controls.enabled = true;
-        this.camera.near = 0.01;
-        this.camera.far = 200;
+        this.camera.near = 0.02;
+        this.camera.far = 120;
         this.camera.fov = 45;
         this.camera.updateProjectionMatrix();
     }

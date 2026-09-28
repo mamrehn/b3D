@@ -739,6 +739,8 @@ kbd { border: 1px solid var(--line-strong); border-bottom-width: 2px; border-rad
     z-index: 7;
     animation: slide-in 0.25s ease;
 }
+.terminal.compact { height: 150px; width: min(470px, calc(100% - 28px)); transition: height 0.3s, width 0.3s; }
+.terminal.compact .term-quick { display: none; }
 .term-titlebar {
     display: flex;
     align-items: center;

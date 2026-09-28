@@ -8,7 +8,7 @@ Die Lernenden begleiten ein Netzwerkkabel vom Brüstungskanal bis zum erfolgreic
 | 1 · Kabelkanal | Verlegekabel in den Brüstungskanal einlegen, Deckel aufsetzen | Trennsteg (Daten ↔ 230 V), Biegeradius, Servicereserve |
 | 2 · Netzwerkdose | 8 Adern auf die LSA-Klemmen auflegen, mit Kabeltester prüfen | Farbcode T568A (Dose zeigt A- *und* B-Code), Wiremap-Fehlerbilder |
 | 3 · Patchpanel & Switch | 24 Ports im 19"-Schrank patchen (3-Minuten-Limit) | passiv/aktiv, Link-LED, 1 : 1-Patchen |
-| 4 · PC-Vernetzung | PCs per Patchkabel anschließen, `ping` in der Eingabeaufforderung | Dokumentation, `ipconfig`, `ping`, Fehlermeldungen deuten |
+| 4 · PC-Vernetzung | PCs per Patchkabel anschließen, `ping` in der Eingabeaufforderung; Blick durch die Wand in den Technikraum | Gesamte Strecke PC → Dose → Verlegekabel → Patchpanel → Switch, `ipconfig`, `ping`, Fehlermeldungen deuten |
 
 ## Starten
 
@@ -48,6 +48,7 @@ js/data.js          Farbcodes, LSA-Belegung, alle Texte & Hilfen
 js/models.js        3D-Modelle (Kabel, RJ45-Stecker, Kanal, Dosen, PC, Möbel …)
 js/materials.js     Prozedurale Texturen & Materialien (keine Bilddateien nötig)
 js/labels.js        3D-Beschriftungen
+js/rack.js          19"-Schrank (Patchpanel, Switches …) – Station 3 und Technikraum in Station 4
 js/levels/level1–4  Die vier Stationen
 ```
 
