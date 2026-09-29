@@ -180,6 +180,7 @@ export function buildRoom({
         return m;
     };
     if (walls.includes('back')) at(mkWall(width, height), 0, height / 2, 0, g);
+    if (walls.includes('front')) at(mkWall(width, height), 0, height / 2, depth, g).rotation.y = Math.PI;
     if (walls.includes('left')) {
         const lw = at(mkWall(depth, height), -width / 2, height / 2, depth / 2, g);
         lw.rotation.y = Math.PI / 2;
@@ -195,6 +196,7 @@ export function buildRoom({
     if (skirting) {
         const sm = std(skirting, 0.5);
         if (walls.includes('back')) at(box(width, 0.06, 0.014, sm), 0, 0.03, 0.007, g);
+        if (walls.includes('front')) at(box(width, 0.06, 0.014, sm), 0, 0.03, depth - 0.007, g);
         if (walls.includes('left')) at(box(0.014, 0.06, depth, sm), -width / 2 + 0.007, 0.03, depth / 2, g);
         if (walls.includes('right')) at(box(0.014, 0.06, depth, sm), width / 2 - 0.007, 0.03, depth / 2, g);
     }
@@ -355,12 +357,26 @@ export function whiteboard(w = 1.4, h = 0.9) {
 // Brüstungskanal (Ursprung: linkes Ende, Mitte der Höhe, an der Wand)
 // ------------------------------------------------------------
 
-export function buildDuct({ length = 2, height = 0.13, depth = 0.065, divider = true, capLeft = false, capRight = true } = {}) {
+/** openings: runde Durchbrüche in der Rückwand [{ x, y, r }] (x ab linkem Ende, y ab Mitte) */
+export function buildDuct({ length = 2, height = 0.13, depth = 0.065, divider = true, capLeft = false, capRight = true, openings = [] } = {}) {
     const g = new THREE.Group();
     const mat = MAT.ductWhite();
     const inner = std('#e8e5dd', 0.55);
     const t = 0.0024;
-    at(box(length, height, t, inner), length / 2, 0, t / 2, g);
+    if (openings.length) {
+        const s = new THREE.Shape();
+        s.moveTo(0, -height / 2);
+        s.lineTo(length, -height / 2);
+        s.lineTo(length, height / 2);
+        s.lineTo(0, height / 2);
+        s.closePath();
+        for (const o of openings) s.holes.push(new THREE.Path().absarc(o.x, o.y, o.r, 0, Math.PI * 2, true));
+        const back = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: t, bevelEnabled: false, curveSegments: 24 }), inner);
+        back.castShadow = back.receiveShadow = true;
+        g.add(back);
+    } else {
+        at(box(length, height, t, inner), length / 2, 0, t / 2, g);
+    }
     at(box(length, t, depth - 0.002, mat), length / 2, height / 2 - t / 2, (depth - 0.002) / 2, g);
     at(box(length, t, depth - 0.002, mat), length / 2, -height / 2 + t / 2, (depth - 0.002) / 2, g);
     at(rbox(length, 0.007, 0.005, 0.002, mat), length / 2, height / 2 - 0.0045, depth - 0.0035, g);

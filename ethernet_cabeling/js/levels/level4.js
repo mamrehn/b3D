@@ -21,8 +21,10 @@ import { uCenter, PP_U, SW1_U, SW2_U, SW_NAME, SW_COLOR, portX, buildFullRack, m
 
 const DUCT_Y = 1.0, DUCT_D = 0.065, LOW_Y = DUCT_Y - 0.034;
 const DESK_H = 0.74;
-const WALL_T = 0.2;                        // Wand Büro ↔ Technikraum
-const BREACH = { x: 2.34, y: LOW_Y + 0.004, w: 0.12, h: 0.12 };
+const WALL_T = 0.2, WALL_MID = -WALL_T / 2;  // Wand Büro ↔ Technikraum
+// Kernbohrung mit Rohrhülse, auf Höhe der unteren (Daten-)Kammer des Brüstungskanals
+const BREACH = { x: 2.34, y: LOW_Y, r: 0.028 };
+const SLEEVE_Z0 = -WALL_T - 0.022, SLEEVE_Z1 = 0.003;   // Hülse: im Technikraum etwas vorstehend, im Büro bündig mit der Kanalrückwand
 const RACK_POS = V(0.8, 0, -1.2);          // Frontebene des Netzwerkschranks
 const TECH_BACK = -3.0;
 const IP = { 1: '192.168.1.1', 2: '192.168.1.2' };
@@ -33,12 +35,10 @@ const JACK_PP = { 'DD1-1': 1, 'DD1-2': 2, 'DD2-1': 3, 'DD2-2': 4 };
 const OVERVIEW = { position: V(2.2, 3.4, 3.2), target: V(0.0, 0.8, -0.8) };
 const HOME = { position: V(0, 1.58, 2.5), target: V(0, 0.92, 0.3) };
 const TECH_VIEW = { position: V(1.3, 1.5, -0.4), target: V(0.8, 1.28, -1.25) };
-const OFFICE_CONTROLS = { minDistance: 0.2, maxDistance: 7.5, maxPolarAngle: 1.52, minAzimuthAngle: -1.3, maxAzimuthAngle: 1.3 };
-const TECH_CONTROLS = { minDistance: 0.2, maxDistance: 4.5, maxPolarAngle: 1.52 };
 const CEILING_H = 2.8;
-// Technikraum: Steigkanal direkt am Wanddurchbruch hinauf zur Kabelrinne,
+// Technikraum: Steigkanal direkt über dem Wanddurchbruch hinauf zur Kabelrinne,
 // die an der Seitenwand nach hinten und an der Rückwand bis über den Schrank läuft.
-const RISER_Y0 = BREACH.y - BREACH.h / 2 - 0.03, RISER_TOP = 2.26;
+const RISER_Y0 = BREACH.y + 0.09, RISER_TOP = 2.26;
 const TRAY_Y = 2.3, TRAY_W = 0.26, TRAY_X = BREACH.x, TRAY_Z = -1.75;
 // Link-LEDs der übrigen Büro-Anschlüsse (0 aus, 1 Link, 2 Link + Verkehr)
 const OTHER_LEDS = { 1: [0, 0, 0, 0, 2, 1, 0, 2, 2, 0, 1, 2], 2: [2, 1, 2, 0, 2, 2, 0, 1, 2, 0, 2, 1] };
@@ -57,9 +57,8 @@ export class Level4 extends BaseLevel {
         this.xray = false;
         this.term = { lines: [], open: false, history: [], hIdx: 0, arp: false };
         this.done = false;
-        this.room = null;                  // 'office' | 'tech' – wo die Kamera steht
+        this.room = 'office';              // 'office' | 'tech' – auf welcher Seite der Wand die Kamera steht
         this.fadeMats = [];
-        this.wallPieces = [];
         this.xrayLabels = [];
         this.installCurves = {};
         this.installMeshes = {};
@@ -78,8 +77,10 @@ export class Level4 extends BaseLevel {
         this.setupTerminal();
         this.drawScreens();
 
-        e.onFrame((dt, t) => this.animate(t));
-        this.setRoom('office');
+        e.onFrame((dt, t) => this.animate(dt, t));
+        // Frei drehbar – auch einmal ganz herum in den Technikraum und zurück
+        e.configureControls({ minDistance: 0.2, maxDistance: 7.5, maxPolarAngle: 1.52 });
+        e.setHome(HOME);
         e.setView(HOME);
         e.optimizeShadows(0.012);
     }
@@ -99,30 +100,41 @@ export class Level4 extends BaseLevel {
     // ------------------------------------------------------------
 
     buildOffice() {
-        this.add(buildRoom({ width: 5.2, depth: 4.6, height: 2.8, floorMap: parquetTexture(), floorRepeat: [5, 4.5], wallColor: '#e2dccf', walls: ['left', 'right'] }));
+        this.add(buildRoom({ width: 5.2, depth: 4.6, height: 2.8, floorMap: parquetTexture(), floorRepeat: [5, 4.5], wallColor: '#e2dccf', walls: ['left', 'right', 'front'] }));
 
-        // Massive Wand zum Technikraum mit Wanddurchbruch
-        const wallMat = std('#ffffff', 0.92, 0, { map: texRepeat(paintTexture('#e2dccf'), 5.2 / 1.5, 2.8 / 1.5) });
-        wallMat.userData.xrayOpacity = 0.1;
-        this.fadeMats.push(wallMat);
-        const H = 2.8, zc = -WALL_T / 2;
-        const hx0 = BREACH.x - BREACH.w / 2, hx1 = BREACH.x + BREACH.w / 2;
-        const hy0 = BREACH.y - BREACH.h / 2, hy1 = BREACH.y + BREACH.h / 2;
-        const piece = (x0, x1, y0, y1) => this.wallPieces.push(at(box(x1 - x0, y1 - y0, WALL_T, wallMat), (x0 + x1) / 2, (y0 + y1) / 2, zc, this.engine.world));
-        piece(-2.6, hx0, 0, H);
-        piece(hx1, 2.6, 0, H);
-        piece(hx0, hx1, hy1, H);
-        piece(hx0, hx1, 0, hy0);
-        this.engine.addOccluder(...this.wallPieces);      // kein Klicken durch die Wand (außer im Durchblick)
-        // Laibung des Durchbruchs + Brandschott
-        const sleeve = std('#9aa0a7', 0.8);
-        at(box(BREACH.w, 0.006, WALL_T, sleeve), BREACH.x, hy1 - 0.003, zc, this.engine.world);
-        at(box(BREACH.w, 0.006, WALL_T, sleeve), BREACH.x, hy0 + 0.003, zc, this.engine.world);
-        at(box(0.006, BREACH.h, WALL_T, sleeve), hx0 + 0.003, BREACH.y, zc, this.engine.world);
-        at(box(0.006, BREACH.h, WALL_T, sleeve), hx1 - 0.003, BREACH.y, zc, this.engine.world);
-        const sealMat = std('#c24a3a', 0.85);
-        at(box(BREACH.w - 0.012, 0.03, 0.04, sealMat), BREACH.x, hy0 + 0.021, -0.1, this.engine.world);
-        at(box(BREACH.w - 0.012, 0.03, 0.04, sealMat), BREACH.x, hy1 - 0.021, -0.1, this.engine.world);
+        // Massive Wand zum Technikraum mit Kernbohrung für die Verlegekabel
+        const H = 2.8;
+        const paint = texRepeat(paintTexture('#e2dccf'), 1 / 1.5, 1 / 1.5);          // UV in Metern
+        this.wallMat = std('#ffffff', 0.92, 0, { map: paint });                     // Wandflächen – werden ausgeblendet
+        const edgeMat = std('#ffffff', 0.92, 0, { map: paint });                    // Stirnseiten & Bohrung bleiben sichtbar
+        const outline = new THREE.Shape();
+        outline.moveTo(-2.6, 0);
+        outline.lineTo(2.6, 0);
+        outline.lineTo(2.6, H);
+        outline.lineTo(-2.6, H);
+        outline.closePath();
+        outline.holes.push(new THREE.Path().absarc(BREACH.x, BREACH.y, BREACH.r + 0.003, 0, Math.PI * 2, true));
+        const wallGeo = new THREE.ExtrudeGeometry(outline, { depth: WALL_T, bevelEnabled: false, curveSegments: 32 });
+        wallGeo.translate(0, 0, -WALL_T);
+        this.wall = this.add(new THREE.Mesh(wallGeo, [this.wallMat, edgeMat]));
+        this.wall.castShadow = this.wall.receiveShadow = true;
+        this.engine.addOccluder(this.wall);             // kein Klicken durch die Wand, solange sie undurchsichtig ist
+
+        // Rohrhülse in der Bohrung, Brandschutzkitt um das Kabelbündel, im Technikraum eine Brandschutzmanschette
+        const ring = (rOut, rIn, z0, z1, mat) => {
+            const s = new THREE.Shape().absarc(0, 0, rOut, 0, Math.PI * 2, false);
+            s.holes.push(new THREE.Path().absarc(0, 0, rIn, 0, Math.PI * 2, true));
+            const m = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: z1 - z0, bevelEnabled: false, curveSegments: 24 }), mat);
+            m.castShadow = m.receiveShadow = true;
+            return this.add(at(m, BREACH.x, BREACH.y, z0));
+        };
+        const pipe = new THREE.Mesh(new THREE.CylinderGeometry(BREACH.r, BREACH.r, SLEEVE_Z1 - SLEEVE_Z0, 32, 1, true), std('#8d949c', 0.5, 0, { side: THREE.DoubleSide }));
+        pipe.rotation.x = Math.PI / 2;
+        this.add(at(pipe, BREACH.x, BREACH.y, (SLEEVE_Z0 + SLEEVE_Z1) / 2));
+        const putty = std('#b8b1a3', 0.95);
+        ring(BREACH.r - 0.0005, 0.0205, -0.012, 0, putty);
+        ring(BREACH.r - 0.0005, 0.0205, -WALL_T, -WALL_T + 0.012, putty);
+        ring(0.046, BREACH.r + 0.0005, -WALL_T - 0.016, -WALL_T, std('#c24a3a', 0.6));
         // Sockelleisten beidseitig
         const sk = std('#f4f2ec', 0.5);
         at(box(5.2, 0.06, 0.014, sk), 0, 0.03, 0.007, this.engine.world);
@@ -143,7 +155,7 @@ export class Level4 extends BaseLevel {
     }
 
     buildDuctAndOutlets() {
-        const duct = buildDuct({ length: 5.2, capLeft: false, capRight: false });
+        const duct = buildDuct({ length: 5.2, capLeft: false, capRight: false, openings: [{ x: BREACH.x + 2.6, y: BREACH.y - DUCT_Y, r: BREACH.r + 0.001 }] });
         duct.group.position.set(-2.6, DUCT_Y, 0);
         this.add(duct.group);
         // Oberteile mit Aussparungen für die Geräteträger
@@ -203,8 +215,8 @@ export class Level4 extends BaseLevel {
         techLight.target.position.set(0.6, 1.1, -1.8);
         this.add(techLight, techLight.target);
 
-        // Steigkanal auf der Technikraum-Seite: vom Wanddurchbruch senkrecht hinauf zur Kabelrinne
-        const riser = buildDuct({ length: RISER_TOP - RISER_Y0, divider: false, capLeft: true, capRight: false });
+        // Steigkanal auf der Technikraum-Seite: knapp über dem Wanddurchbruch (unten offen) senkrecht hinauf zur Kabelrinne
+        const riser = buildDuct({ length: RISER_TOP - RISER_Y0, divider: false, capLeft: false, capRight: false });
         riser.group.position.set(BREACH.x, RISER_Y0, -WALL_T);
         riser.group.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(0, 1, 0), V(1, 0, 0), V(0, 0, -1)));
         const rc = ductCover({ length: riser.length });
@@ -253,12 +265,12 @@ export class Level4 extends BaseLevel {
             2: [...new Array(12).fill(0), ...OTHER_LEDS[2]]
         };
 
-        // Anklickbar (im Durchblick oder von oben): Kamera fährt in den Technikraum
+        // Anklickbar, sobald er zu sehen ist (Wand ausgeblendet, Durchblick, von oben): Kamera fährt davor
         const hb = hitbox(0.8, 2.05, 1.0);
         hb.position.set(RACK_POS.x, 1.025, RACK_POS.z - 0.5);
         hb.userData = { kind: 'rack' };
         this.add(hb);
-        this.engine.addPickable(hb, { tooltip: '<strong>Netzwerkschrank</strong><span class="tt-sub">Technikraum genauer ansehen</span>', enabled: () => this.room === 'office' });
+        this.engine.addPickable(hb, { tooltip: '<strong>Netzwerkschrank</strong><span class="tt-sub">Technikraum genauer ansehen</span>', enabled: () => this.engine.controls.target.distanceTo(TECH_VIEW.target) > 0.6 });
 
         // Schilder
         const sign = this.add(at(makeLabel('Technikraum · Etagenverteiler', { height: 0.12, sub: 'Patchpanel & Switches aus Station 3', accent: '#4f8cff' }), -0.9, 2.2, TECH_BACK + 0.05));
@@ -290,17 +302,17 @@ export class Level4 extends BaseLevel {
             const pts = [
                 V(x0, DUCT_Y - 0.004, 0.052), V(x0 + 0.03, LOW_Y + dy + 0.01, 0.034),
                 V(x0 + 0.12, LOW_Y + dy, 0.03), V(BREACH.x - 0.14, LOW_Y + dy, 0.03),
-                V(BREACH.x - 0.04 + dx, LOW_Y + dy, 0.016), V(BREACH.x + dx, LOW_Y + dy, -0.03),
-                V(xs, LOW_Y + dy, -0.14), V(xs, LOW_Y + 0.05, -0.214),
-                V(xs, LOW_Y + 0.16, -0.228), V(xs, RISER_TOP - 0.1, -0.228),
-                V(xs, RISER_TOP + 0.05, -0.245), V(xs, ty, -0.34),
+                V(BREACH.x - 0.05 + dx, LOW_Y + dy, 0.03), V(BREACH.x + dx, LOW_Y + dy, 0.004),     // Bogen in die Hülse
+                V(BREACH.x + dx, LOW_Y + dy, -0.06), V(BREACH.x + dx, LOW_Y + dy, -0.2),            // durch die Wand
+                V(xs, LOW_Y + dy + 0.012, -0.238), V(xs, RISER_Y0 + 0.03, -0.24),                  // hinauf in den Steigkanal
+                V(xs, RISER_TOP - 0.1, -0.236), V(xs, RISER_TOP + 0.05, -0.245), V(xs, ty, -0.34),
                 V(xs, ty, -0.5), V(xs, ty, TRAY_Z + 0.25),
                 V(xs - 0.1, ty, zb + 0.02), V(xs - 0.3, ty, zb),
                 V(1.25, ty, zb), V(1.02, TRAY_Y + 0.005, zb - 0.02),
                 ...intoRack(n)
             ];
             const curve = cableCurve(pts);
-            const mesh = cableMesh(curve, 0.0036, jacketMaterial(n === 1 ? orange : yellow, 0.5), { radial: 7, maxSegments: 220 });
+            const mesh = cableMesh(curve, 0.0036, jacketMaterial(n === 1 ? orange : yellow, 0.5), { radial: 7, maxSegments: 900 });   // fein genug für die engen Bögen an der Bohrung
             this.add(mesh);
             this.installCurves[jack] = curve;
             this.installMeshes[jack] = mesh;
@@ -384,7 +396,7 @@ export class Level4 extends BaseLevel {
         };
         L('Patchkabel', 'PC → Datendose', PATCH_COLOR, -0.95, DESK_H + 0.12, 0.12);
         L('Verlegekabel', 'im Brüstungskanal · max. 90 m', '#ee7a16', 1.3, DUCT_Y + 0.14, 0.05);
-        L('Wanddurchbruch', 'mit Brandschott', '#c24a3a', BREACH.x - 0.3, DUCT_Y + 0.32, -0.1);
+        L('Wanddurchbruch', 'Kernbohrung mit Brandschott', '#c24a3a', BREACH.x - 0.3, DUCT_Y + 0.32, -0.1);
         L('Steigkanal', 'vom Durchbruch zur Kabelrinne', '#ee7a16', BREACH.x - 0.4, 1.7, -0.3);
         L('Kabelrinne', 'zum Etagenverteiler', '#e3c01e', TRAY_X - 0.3, 2.5, -1.0);
         L('Patchkabel', 'Patchpanel → Switch', SW_COLOR[1], RACK_POS.x + 0.42, uCenter(SW1_U), RACK_POS.z + 0.1);
@@ -402,12 +414,10 @@ export class Level4 extends BaseLevel {
             m.depthWrite = !on;
             m.needsUpdate = true;
         }
-        if (on) this.engine.removeOccluder(...this.wallPieces);
-        else this.engine.addOccluder(...this.wallPieces);
         this.xrayLabels.forEach(l => { l.visible = on; });
         this.updatePathGlow();
         if (fly) {
-            if (on) this.fly(OVERVIEW.position, OVERVIEW.target, 1.6);
+            if (on) this.engine.flyTo(OVERVIEW.position, OVERVIEW.target, { duration: 1.6 });
             else if (this.room === 'office') this.goOffice();
         }
         this.refresh();
@@ -417,33 +427,41 @@ export class Level4 extends BaseLevel {
     // Kamera: Büro ↔ Technikraum
     // ------------------------------------------------------------
 
-    /** Steuerung, Grenzen und „Ansicht zurücksetzen“ passen zum Raum, in dem die Kamera steht. */
-    setRoom(room) {
-        if (room === this.room) return false;
-        this.room = room;
-        const e = this.engine;
-        const tech = room === 'tech';
-        e.configureControls(tech ? TECH_CONTROLS : OFFICE_CONTROLS);
-        // Die Kamera bleibt auf ihrer Seite der Wand – außen herum (Puppenhaus-Blick) ist erlaubt
-        e.setCameraBounds(tech ? { max: { z: -WALL_T - 0.08 } } : { min: { z: 0.05 } });
-        e.setHome(tech ? TECH_VIEW : HOME);
-        return true;
+    /**
+     * Die Kamera ist frei drehbar. Hier wird verfolgt, auf welcher Seite der Wand sie steht
+     * („Ansicht zurücksetzen“ und die Schaltfläche passen sich an), und die Wand wird
+     * ausgeblendet, sobald sie zwischen Kamera und Blickziel steht – z. B. wenn man vom Büro
+     * aus ganz herumdreht oder in den Technikraum fährt.
+     */
+    updateView(dt) {
+        const e = this.engine, cam = e.camera.position, target = e.controls.target;
+        const room = cam.z < WALL_MID ? 'tech' : 'office';
+        if (room !== this.room) {
+            this.room = room;
+            e.setHome(room === 'tech' ? TECH_VIEW : HOME);
+            this.refresh();
+        }
+        const between = (cam.z - WALL_MID) * (target.z - WALL_MID) < 0;
+        const goal = this.xray ? 0.1 : between ? 0.14 : 1;
+        const m = this.wallMat;
+        if (m.opacity === goal) return;
+        const o = THREE.MathUtils.damp(m.opacity, goal, 8, dt);
+        m.opacity = Math.abs(o - goal) < 0.01 ? goal : o;
+        const see = m.opacity < 1;
+        if (see === m.transparent) return;
+        m.transparent = see;
+        m.depthWrite = !see;
+        m.needsUpdate = true;
+        if (see) e.removeOccluder(this.wall);            // durch die ausgeblendete Wand darf geklickt werden
+        else e.addOccluder(this.wall);
     }
 
-    /** Kamerafahrt; die Zielposition der Kamera legt den Raum fest. */
-    fly(position, target, duration = 1.2) {
-        if (this.setRoom(position.z < -WALL_T ? 'tech' : 'office')) this.refresh();
-        return this.engine.flyTo(position, target, { duration });
-    }
-
-    goOffice(duration = 1.3) { return this.fly(HOME.position, HOME.target, duration); }
+    goOffice(duration = 1.3) { return this.engine.flyTo(HOME.position, HOME.target, { duration }); }
 
     toggleTechRoom() {
-        if (this.room === 'tech') this.goOffice();
-        else {
-            this.fly(TECH_VIEW.position, TECH_VIEW.target, 1.6);
-            this.toast('Technikraum: Deine Verlegekabel kommen durch den Wanddurchbruch, laufen im <strong>Steigkanal</strong> zur Kabelrinne und enden hinten am <strong>Patchpanel</strong>. Ziehen dreht die Ansicht, Mausrad/2 Finger zoomt.', 'info', 5200);
-        }
+        if (this.room === 'tech') { this.goOffice(); return; }
+        this.engine.flyTo(TECH_VIEW.position, TECH_VIEW.target, { duration: 1.6 });
+        this.toast('Technikraum: Deine Verlegekabel kommen durch die <strong>Kernbohrung</strong> in der Wand, laufen im <strong>Steigkanal</strong> zur Kabelrinne und enden hinten am <strong>Patchpanel</strong>. Ziehen dreht die Ansicht – auch ganz herum zurück ins Büro.', 'info', 5600);
     }
 
     pathMaterials() {
@@ -525,13 +543,13 @@ export class Level4 extends BaseLevel {
     viewRear(k, fromClick) {
         const p = this.pcs[k];
         const sx = k === 1 ? -1 : 1;
-        this.fly(V(sx * 2.0, 1.3, 1.0), V(p.lanPos.x, p.lanPos.y - 0.08, p.lanPos.z));
+        this.engine.flyTo(V(sx * 2.0, 1.3, 1.0), V(p.lanPos.x, p.lanPos.y - 0.08, p.lanPos.z), { duration: 1.2 });
         if (fromClick && !this.hand && !this.isLinked(k)) this.toast(`Hier auf der Rückseite sitzt der LAN-Port von PC ${k}.`, 'info', 2400);
     }
 
     viewSocket(k) {
         const x = OUTLET_X[k];
-        this.fly(V(x + (k === 1 ? 0.2 : -0.2), 1.16, 0.6), V(x, DUCT_Y - 0.03, 0.07));
+        this.engine.flyTo(V(x + (k === 1 ? 0.2 : -0.2), 1.16, 0.6), V(x, DUCT_Y - 0.03, 0.07), { duration: 1.2 });
     }
 
     /** Endpunkt-Beschreibung für PC-Port oder Datendose */
@@ -759,7 +777,7 @@ export class Level4 extends BaseLevel {
         if (next) this.goOffice();
         else {
             this.toast('Beide PCs sind angeschlossen. Tipp: Mit <strong>„Gesamte Strecke zeigen“</strong> blickst du durch die Wand in den Technikraum.', 'info', 5200);
-            this.fly(V(-0.45, 1.33, 1.4), V(-0.7, 1.05, 0.36), 1.4);
+            e.flyTo(V(-0.45, 1.33, 1.4), V(-0.7, 1.05, 0.36), { duration: 1.4 });
         }
         this.refresh();
     }
@@ -815,7 +833,8 @@ export class Level4 extends BaseLevel {
     // Animation (LEDs, loses Kabel)
     // ------------------------------------------------------------
 
-    animate(t) {
+    animate(dt, t) {
+        this.updateView(dt);
         for (const k of [1, 2]) {
             const leds = this.pcs[k].tower.leds;
             const linked = this.isLinked(k);
@@ -1297,7 +1316,7 @@ export class Level4 extends BaseLevel {
             <button class="btn ${this.isLinked(1) && this.isLinked(2) && !this.term.open ? 'btn-primary' : 'btn-ghost'} btn-block" type="button" id="l4-term" style="margin-top:0.7rem">${icon('terminal')} Eingabeaufforderung (PC 1)</button>
             <button class="btn ${this.xray ? 'btn-primary' : 'btn-ghost'} btn-block" type="button" id="l4-xray" style="margin-top:0.5rem">${icon('network')} ${this.xray ? 'Wand wieder einblenden' : 'Gesamte Strecke zeigen'}</button>
             <button class="btn ${this.room === 'tech' ? 'btn-primary' : 'btn-ghost'} btn-block" type="button" id="l4-tech" style="margin-top:0.5rem">${icon('rack')} ${this.room === 'tech' ? 'Zurück ins Büro' : 'Technikraum ansehen'}</button>
-            <p class="small muted" style="margin:0.5rem 0 0">Blick durch die Wand: Verlegekabel, Wanddurchbruch und der Netzwerkschrank im Technikraum – oder direkt hineingehen und den Schrank aus der Nähe ansehen.</p>`;
+            <p class="small muted" style="margin:0.5rem 0 0">Die Ansicht lässt sich frei drehen – auch ganz herum in den Technikraum. Steht die Wand im Weg, wird sie durchsichtig.</p>`;
         el.querySelector('#l4-term').addEventListener('click', () => (this.term.open ? $('#term-input').focus() : this.openTerminal()));
         el.querySelector('#l4-xray').addEventListener('click', () => { if (this.ctx.playing && !this.pinging) this.setXray(!this.xray); });
         el.querySelector('#l4-tech').addEventListener('click', () => { if (this.ctx.playing && !this.pinging && !this.linking) this.toggleTechRoom(); });

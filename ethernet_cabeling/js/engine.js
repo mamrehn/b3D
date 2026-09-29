@@ -82,7 +82,6 @@ export class Engine {
         this.pickables = new Set();
         this.occluders = [];
         this.wallItems = [];
-        this.cameraBounds = null;
         this._pickMeshes = null;
         this.hovered = null;
         this.hints = new Set();
@@ -121,7 +120,6 @@ export class Engine {
         this.pickables.clear();
         this.occluders = [];
         this.wallItems = [];
-        this.cameraBounds = null;
         this._pickMeshes = null;
         this.hovered = null;
         this.hints.clear();
@@ -210,12 +208,6 @@ export class Engine {
 
     configureControls(opts) {
         Object.assign(this.controls, DEFAULT_CONTROLS, opts);
-    }
-
-    /** Hält die Kamera in einem Quader, z. B. vor einer Wand: { min: { z: 0.05 } } – fehlende Achsen sind frei, null = aus. */
-    setCameraBounds(bounds) {
-        const vec = (v, d) => new THREE.Vector3(v?.x ?? d, v?.y ?? d, v?.z ?? d);
-        this.cameraBounds = bounds ? { min: vec(bounds.min, -Infinity), max: vec(bounds.max, Infinity) } : null;
     }
 
     setView({ position, target, fov }) {
@@ -530,10 +522,6 @@ export class Engine {
         this._updateHover();
         this._applyGlow();
         this.controls.update(dt);
-        if (this.cameraBounds && !this._flight) {      // Kamerafahrten dürfen Grenzen kreuzen (z. B. Raumwechsel)
-            this.camera.position.clamp(this.cameraBounds.min, this.cameraBounds.max);
-            this.camera.lookAt(this.controls.target);
-        }
         for (const w of this.wallItems) w.obj.visible = w.plane.distanceToPoint(this.camera.position) > 0;
         this.renderer.render(this.scene, this.camera);
     }
